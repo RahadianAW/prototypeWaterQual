@@ -1,85 +1,105 @@
 // src/components/charts/GaugeChart.jsx
-import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import React from "react";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 
-const GaugeChart = ({ value, min, max, thresholds, title, unit }) => {
-  // Menghitung persentase nilai dari minimum-maximum
-  const percent = Math.min(Math.max(((value - min) / (max - min)) * 100, 0), 100);
+const GaugeChart = ({ value = 0, min = 0, max = 100, threshold, status: statusProp, title, unit }) => {
+  // safety: pastikan min < max
+  const safeMin = Number(min ?? 0);
+  const safeMax = Number(max ?? 100);
+  const range = safeMax - safeMin || 1;
 
-  // Menentukan warna berdasarkan ambang batas
-  const getColor = () => {
-    if (thresholds) {
-      const { warning, danger } = thresholds;
-      if (value >= danger) return '#ef4444'; // danger-500
-      if (value >= warning) return '#f59e0b'; // warning-500
-      return '#22c55e'; // success-500
+  // persentase 0..100
+  const percent = Math.min(Math.max(((Number(value) - safeMin) / range) * 100, 0), 100);
+
+  // tentukan status
+  const getStatus = () => {
+    if (statusProp) {
+      // pakai status dari data (normal/warning/danger), normalisasi ke lowercase
+      return String(statusProp).toLowerCase();
     }
-    return '#22c55e'; // Default color
+
+    if (threshold && typeof threshold === "object" && "min" in threshold && "max" in threshold) {
+      const tMin = Number(threshold.min);
+      const tMax = Number(threshold.max);
+
+      // kalau keluar ambang -> danger
+      if (value < tMin || value > tMax) return "danger";
+
+      // tambahkan zona warning: mis. 10% dari rentang threshold
+      const warnMargin = 0.1 * (tMax - tMin || 1);
+      if (value <= tMin + warnMargin || value >= tMax - warnMargin) return "warning";
+
+      return "normal";
+    }
+
+    // fallback default
+    return "normal";
   };
 
-  // Data untuk pie chart
+  const status = getStatus();
+
+  const COLORS = {
+    normal: "#22c55e",
+    warning: "#f59e0b",
+    danger: "#ef4444",
+  };
+
+  // data untuk pie gauge
   const data = [
-    { name: 'Value', value: percent },
-    { name: 'Empty', value: 100 - percent }
+    { name: "value", value: percent },
+    { name: "rest", value: 100 - percent },
   ];
 
-  // CSS untuk membuat gauge setengah lingkaran
-  const RADIAN = Math.PI / 180;
-  const cx = 150;
-  const cy = 150;
-  const radius = 100;
-  const startAngle = 180;
-  const endAngle = 0;
-
-  // Label di tengah gauge
-  const GaugeLabel = () => {
-    return (
-      <text
-        x={cx}
-        y={cy}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        className="text-2xl font-bold"
-        fill="#374151" // text-gray-700
-      >
-        {value}
-        {unit && <tspan className="text-lg font-normal" dx="2">{unit}</tspan>}
-      </text>
-    );
-  };
+  const GaugeLabel = ({ cx, cy }) => (
+    <text
+      x={cx}
+      y={cy - 10}
+      textAnchor="middle"
+      dominantBaseline="middle"
+      fontSize="16"
+      fontWeight="700"
+      fill="#374151"
+    >
+      {value}
+      {unit && <tspan dx="4" fontSize="12" fontWeight="400">{unit}</tspan>}
+    </text>
+  );
 
   return (
     <div className="w-full">
-      {title && (
-        <h4 className="text-sm font-medium text-gray-500 text-center mb-2">{title}</h4>
-      )}
+      {title && <h4 className="text-sm font-medium text-gray-500 text-center mb-2">{title}</h4>}
+
       <div className="h-44">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={data}
-              cx={cx}
-              cy={cy}
-              innerRadius={radius * 0.7}
-              outerRadius={radius}
-              startAngle={startAngle}
-              endAngle={endAngle}
-              paddingAngle={0}
+              cx="50%"
+              cy="100%"
+              startAngle={180}
+              endAngle={0}
+              innerRadius="60%"
+              outerRadius="100%"
               dataKey="value"
-              cornerRadius={6}
               stroke="none"
+              label={GaugeLabel}
+              labelLine={false}
             >
-              <Cell key="value" fill={getColor()} />
-              <Cell key="empty" fill="#e5e7eb" /> {/* gray-200 */}
+              <Cell fill={COLORS[status] || COLORS.normal} />
+              <Cell fill="#e5e7eb" />
             </Pie>
-            <GaugeLabel />
           </PieChart>
         </ResponsiveContainer>
       </div>
+
       <div className="flex justify-between text-xs text-gray-500 px-4 mt-2">
-        <span>{min}</span>
-        <span>{max}</span>
+        <span>{threshold ? `${threshold.min}${unit ?? ""}` : `${min}${unit ?? ""}`}</span>
+        <span>{threshold ? `${threshold.max}${unit ?? ""}` : `${max}${unit ?? ""}`}</span>
       </div>
+
+      <p className="text-center text-sm mt-1 font-medium" style={{ color: COLORS[status] || COLORS.normal }}>
+        {String(status).toUpperCase()}
+      </p>
     </div>
   );
 };

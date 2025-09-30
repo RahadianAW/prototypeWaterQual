@@ -1,10 +1,11 @@
-// src/pages/Login.jsx
+// src/pages/SignUp.jsx
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { users } from "../data/dummyData";
 
-const Login = () => {
+const SignUp = () => {
   const navigate = useNavigate();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -12,20 +13,34 @@ const Login = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // cari user di dummyData
-    const foundUser = users.find(
-      (user) => user.email === email && user.password === password
-    );
-
-    if (foundUser) {
-      // simpan ke localStorage (pakai key yang konsisten)
-      localStorage.setItem("loggedInUser", JSON.stringify(foundUser));
-
-      setError("");
-      navigate("/dashboard"); // redirect ke dashboard
-    } else {
-      setError("Invalid email or password");
+    // cek apakah email sudah terdaftar
+    const existingUser = users.find((user) => user.email === email);
+    if (existingUser) {
+      setError("Email already registered");
+      return;
     }
+
+    // buat user baru dengan role default = guest
+    const newUser = {
+      id: users.length + 1,
+      name,
+      email,
+      password,
+      role: "guest", // default role
+      isVerified: false, // user baru harus diverifikasi dulu
+    };
+
+    // simpan ke localStorage (sementara)
+    const savedUsers = JSON.parse(localStorage.getItem("users")) || users;
+    savedUsers.push(newUser);
+    localStorage.setItem("users", JSON.stringify(savedUsers));
+
+    // simpan user yg sedang proses verifikasi
+    localStorage.setItem("pendingUser", JSON.stringify(newUser));
+
+    setError("");
+    // redirect ke halaman verifikasi, bukan langsung dashboard
+    navigate("/verify");
   };
 
   return (
@@ -37,7 +52,7 @@ const Login = () => {
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="currentColor"
-            className="w-16 h-16 text-blue-500"
+            className="w-12 h-12 text-blue-500"
           >
             <path d="M12 2C12 2 6 10 6 15a6 6 0 0012 0c0-5-6-13-6-13z" />
           </svg>
@@ -45,12 +60,20 @@ const Login = () => {
 
         {/* Judul */}
         <h1 className="text-2xl font-bold text-gray-900">
-          Water Quality Monitoring
+          Create New Account
         </h1>
-        <p className="text-gray-500 text-sm mb-6">Sign in to your account</p>
+        <p className="text-gray-500 text-sm mb-6">Sign up to get started</p>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            placeholder="Full Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+            required
+          />
           <input
             type="email"
             placeholder="Email address"
@@ -75,15 +98,15 @@ const Login = () => {
             type="submit"
             className="w-full bg-cyan-400 hover:bg-cyan-500 text-white rounded-md py-2 font-medium"
           >
-            Sign In
+            Sign Up
           </button>
         </form>
 
-        {/* Sign Up */}
+        {/* Back to login */}
         <p className="text-sm text-gray-600 mt-4">
-          Don’t have an account?{" "}
-          <Link to="/signup" className="text-blue-500 font-medium">
-            Sign Up
+          Already have an account?{" "}
+          <Link to="/login" className="text-blue-500 font-medium">
+            Sign In
           </Link>
         </p>
       </div>
@@ -91,4 +114,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default SignUp;

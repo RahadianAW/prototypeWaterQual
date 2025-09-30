@@ -8,75 +8,58 @@ import LineChart from '../components/charts/LineChart';
 const Reports = () => {
   const [dateRange, setDateRange] = useState('7days');
   const [selectedLocation, setSelectedLocation] = useState('all');
-  const [selectedParams, setSelectedParams] = useState({
-    ph: true,
-    temperature: true,
-    tds: true,
-    turbidity: true
-  });
 
-  // Mendapatkan daftar lokasi unik dari data sensor
-  const locations = [...new Set(sensors.map(sensor => sensor.location))];
+  // Buat state parameter otomatis dari historicalData
+  const [selectedParams, setSelectedParams] = useState(
+    Object.keys(historicalData).reduce((acc, key) => {
+      acc[key] = true;
+      return acc;
+    }, {})
+  );
 
-  // Filter data berdasarkan tanggal
+  // Daftar lokasi unik dari sensors
+  const locations = [...new Set(sensors.map((sensor) => sensor.location))];
+
+  // Filter berdasarkan tanggal
   const getFilteredDataByDate = (data) => {
     const now = new Date();
-    
-    switch (dateRange) {
-      case 'today':
-        return data.filter(item => {
-          const date = parseISO(item.timestamp);
-          return format(date, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
-        });
-      case '7days':
-        return data.filter(item => {
-          const date = parseISO(item.timestamp);
-          return date >= subDays(now, 7);
-        });
-      case '30days':
-        return data.filter(item => {
-          const date = parseISO(item.timestamp);
-          return date >= subDays(now, 30);
-        });
-      default:
-        return data;
-    }
+    return data.filter((item) => {
+      const date = parseISO(item.timestamp);
+      if (dateRange === 'today') {
+        return format(date, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
+      } else if (dateRange === '7days') {
+        return date >= subDays(now, 7);
+      } else if (dateRange === '30days') {
+        return date >= subDays(now, 30);
+      }
+      return true; // all time
+    });
   };
 
-  // Filter data berdasarkan lokasi
-  // Dalam contoh ini, kita hanya mensimulasikan filter lokasi
-  // karena data dummy tidak memiliki informasi lokasi
+  // Filter berdasarkan lokasi + tanggal
   const getFilteredData = () => {
-    // Untuk demo ini, kita menganggap semua data berasal dari lokasi yang sama
-    if (selectedLocation === 'all') {
-      return {
-        ph: getFilteredDataByDate(historicalData.ph),
-        temperature: getFilteredDataByDate(historicalData.temperature),
-        tds: getFilteredDataByDate(historicalData.tds),
-        turbidity: getFilteredDataByDate(historicalData.turbidity)
-      };
-    }
-    
-    // Dalam kasus nyata, ini akan memfilter berdasarkan lokasi
-    return {
-      ph: getFilteredDataByDate(historicalData.ph),
-      temperature: getFilteredDataByDate(historicalData.temperature),
-      tds: getFilteredDataByDate(historicalData.tds),
-      turbidity: getFilteredDataByDate(historicalData.turbidity)
-    };
+    return Object.keys(historicalData).reduce((acc, param) => {
+      let data = getFilteredDataByDate(historicalData[param]);
+
+      if (selectedLocation !== 'all') {
+        data = data.filter((item) => item.location === selectedLocation);
+      }
+
+      acc[param] = data;
+      return acc;
+    }, {});
   };
 
   const filteredData = getFilteredData();
 
-  // Fungsi untuk mensimulasikan ekspor data
+  // Ekspor data (simulasi)
   const exportData = (format) => {
-    const params = [];
-    if (selectedParams.ph) params.push('pH');
-    if (selectedParams.temperature) params.push('Temperature');
-    if (selectedParams.tds) params.push('TDS');
-    if (selectedParams.turbidity) params.push('Turbidity');
-    
-    alert(`Exporting ${params.join(', ')} data to ${format.toUpperCase()} for ${selectedLocation} location, time range: ${dateRange}`);
+    const params = Object.keys(selectedParams).filter((p) => selectedParams[p]);
+    alert(
+      `Exporting ${params.join(', ')} data to ${format.toUpperCase()} for ${
+        selectedLocation
+      } location, time range: ${dateRange}`
+    );
   };
 
   return (
@@ -119,7 +102,7 @@ const Reports = () => {
               className="form-input"
             >
               <option value="all">All Locations</option>
-              {locations.map(location => (
+              {locations.map((location) => (
                 <option key={location} value={location}>
                   {location}
                 </option>
@@ -133,57 +116,24 @@ const Reports = () => {
               Parameters
             </label>
             <div className="flex flex-wrap gap-3">
-              <label className="inline-flex items-center">
-                <input
-                  type="checkbox"
-                  checked={selectedParams.ph}
-                  onChange={() => setSelectedParams({
-                    ...selectedParams,
-                    ph: !selectedParams.ph
-                  })}
-                  className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">pH</span>
-              </label>
-              
-              <label className="inline-flex items-center">
-                <input
-                  type="checkbox"
-                  checked={selectedParams.temperature}
-                  onChange={() => setSelectedParams({
-                    ...selectedParams,
-                    temperature: !selectedParams.temperature
-                  })}
-                  className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">Temperature</span>
-              </label>
-              
-              <label className="inline-flex items-center">
-                <input
-                  type="checkbox"
-                  checked={selectedParams.tds}
-                  onChange={() => setSelectedParams({
-                    ...selectedParams,
-                    tds: !selectedParams.tds
-                  })}
-                  className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">TDS</span>
-              </label>
-              
-              <label className="inline-flex items-center">
-                <input
-                  type="checkbox"
-                  checked={selectedParams.turbidity}
-                  onChange={() => setSelectedParams({
-                    ...selectedParams,
-                    turbidity: !selectedParams.turbidity
-                  })}
-                  className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">Turbidity</span>
-              </label>
+              {Object.keys(selectedParams).map((param) => (
+                <label key={param} className="inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedParams[param]}
+                    onChange={() =>
+                      setSelectedParams({
+                        ...selectedParams,
+                        [param]: !selectedParams[param],
+                      })
+                    }
+                    className="h-4 w-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700 capitalize">
+                    {param}
+                  </span>
+                </label>
+              ))}
             </div>
           </div>
         </div>
@@ -200,7 +150,7 @@ const Reports = () => {
             <MdDownload className="mr-2" />
             Export CSV
           </button>
-          
+
           <button
             onClick={() => exportData('pdf')}
             className="btn btn-secondary flex items-center"
@@ -208,7 +158,7 @@ const Reports = () => {
             <MdDownload className="mr-2" />
             Export PDF
           </button>
-          
+
           <button
             onClick={() => exportData('excel')}
             className="bg-green-600 hover:bg-green-700 text-white btn flex items-center"
@@ -220,61 +170,29 @@ const Reports = () => {
       </div>
 
       {/* Data Visualization */}
-      <div className="space-y-6">
-        {/* pH Chart */}
-        {selectedParams.ph && (
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">pH Level</h3>
-            <LineChart 
-              data={filteredData.ph} 
-              dataKey="value" 
-              name="pH" 
-              color="#0ea5e9" 
-              unit="" 
-            />
-          </div>
-        )}
-        
-        {/* Temperature Chart */}
-        {selectedParams.temperature && (
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Temperature</h3>
-            <LineChart 
-              data={filteredData.temperature} 
-              dataKey="value" 
-              name="Temperature" 
-              color="#ef4444" 
-              unit="°C" 
-            />
-          </div>
-        )}
-        
-        {/* TDS Chart */}
-        {selectedParams.tds && (
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">TDS (Total Dissolved Solids)</h3>
-            <LineChart 
-              data={filteredData.tds} 
-              dataKey="value" 
-              name="TDS" 
-              color="#14b8a6" 
-              unit="ppm" 
-            />
-          </div>
-        )}
-        
-        {/* Turbidity Chart */}
-        {selectedParams.turbidity && (
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Turbidity</h3>
-            <LineChart 
-              data={filteredData.turbidity} 
-              dataKey="value" 
-              name="Turbidity" 
-              color="#f59e0b" 
-              unit="NTU" 
-            />
-          </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {Object.keys(selectedParams).map(
+          (param) =>
+            selectedParams[param] &&
+            [...new Set(filteredData[param]?.map((d) => d.location))].map(
+              (loc) => (
+                <div
+                  key={`${param}-${loc}`}
+                  className="bg-white rounded-lg shadow-sm p-4"
+                >
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">
+                    {param} ({loc})
+                  </h3>
+                  <LineChart
+                    data={filteredData[param].filter((d) => d.location === loc)}
+                    dataKey="value"
+                    name={`${param} - ${loc}`}
+                    color="#0ea5e9"
+                    unit=""
+                  />
+                </div>
+              )
+            )
         )}
       </div>
 
@@ -283,146 +201,80 @@ const Reports = () => {
         <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">Summary Data</h3>
           <p className="mt-1 text-sm text-gray-500">
-            Statistical summary of water quality parameters
+            Statistical summary of water quality parameters by location
           </p>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Parameter
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Location
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Average
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Minimum
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Maximum
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Last Reading
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {/* pH Row */}
-              {selectedParams.ph && (
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    pH Level
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.ph.length > 0
-                      ? (filteredData.ph.reduce((acc, item) => acc + item.value, 0) / filteredData.ph.length).toFixed(2)
-                      : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.ph.length > 0
-                      ? Math.min(...filteredData.ph.map(item => item.value)).toFixed(2)
-                      : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.ph.length > 0
-                      ? Math.max(...filteredData.ph.map(item => item.value)).toFixed(2)
-                      : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.ph.length > 0
-                      ? filteredData.ph[filteredData.ph.length - 1].value.toFixed(2)
-                      : 'N/A'}
-                  </td>
-                </tr>
-              )}
-              
-              {/* Temperature Row */}
-              {selectedParams.temperature && (
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    Temperature
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.temperature.length > 0
-                      ? (filteredData.temperature.reduce((acc, item) => acc + item.value, 0) / filteredData.temperature.length).toFixed(2) + ' °C'
-                      : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.temperature.length > 0
-                      ? Math.min(...filteredData.temperature.map(item => item.value)).toFixed(2) + ' °C'
-                      : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.temperature.length > 0
-                      ? Math.max(...filteredData.temperature.map(item => item.value)).toFixed(2) + ' °C'
-                      : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.temperature.length > 0
-                      ? filteredData.temperature[filteredData.temperature.length - 1].value.toFixed(2) + ' °C'
-                      : 'N/A'}
-                  </td>
-                </tr>
-              )}
-              
-              {/* TDS Row */}
-              {selectedParams.tds && (
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    TDS
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.tds.length > 0
-                      ? (filteredData.tds.reduce((acc, item) => acc + item.value, 0) / filteredData.tds.length).toFixed(2) + ' ppm'
-                      : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.tds.length > 0
-                      ? Math.min(...filteredData.tds.map(item => item.value)).toFixed(2) + ' ppm'
-                      : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.tds.length > 0
-                      ? Math.max(...filteredData.tds.map(item => item.value)).toFixed(2) + ' ppm'
-                      : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.tds.length > 0
-                      ? filteredData.tds[filteredData.tds.length - 1].value.toFixed(2) + ' ppm'
-                      : 'N/A'}
-                  </td>
-                </tr>
-              )}
-              
-              {/* Turbidity Row */}
-              {selectedParams.turbidity && (
-                <tr>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    Turbidity
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.turbidity.length > 0
-                      ? (filteredData.turbidity.reduce((acc, item) => acc + item.value, 0) / filteredData.turbidity.length).toFixed(2) + ' NTU'
-                      : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.turbidity.length > 0
-                      ? Math.min(...filteredData.turbidity.map(item => item.value)).toFixed(2) + ' NTU'
-                      : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.turbidity.length > 0
-                      ? Math.max(...filteredData.turbidity.map(item => item.value)).toFixed(2) + ' NTU'
-                      : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {filteredData.turbidity.length > 0
-                      ? filteredData.turbidity[filteredData.turbidity.length - 1].value.toFixed(2) + ' NTU'
-                      : 'N/A'}
-                  </td>
-                </tr>
+              {Object.keys(selectedParams).map(
+                (param) =>
+                  selectedParams[param] &&
+                  [...new Set(filteredData[param]?.map((d) => d.location))].map(
+                    (loc) => {
+                      const rows = filteredData[param].filter(
+                        (d) => d.location === loc
+                      );
+                      return (
+                        <tr key={`${param}-${loc}`}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 capitalize">
+                            {param}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {loc}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {rows.length > 0
+                              ? (
+                                  rows.reduce(
+                                    (acc, item) => acc + item.value,
+                                    0
+                                  ) / rows.length
+                                ).toFixed(2)
+                              : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {rows.length > 0
+                              ? Math.min(...rows.map((item) => item.value)).toFixed(2)
+                              : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {rows.length > 0
+                              ? Math.max(...rows.map((item) => item.value)).toFixed(2)
+                              : 'N/A'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {rows.length > 0
+                              ? rows[rows.length - 1].value.toFixed(2)
+                              : 'N/A'}
+                          </td>
+                        </tr>
+                      );
+                    }
+                  )
               )}
             </tbody>
           </table>

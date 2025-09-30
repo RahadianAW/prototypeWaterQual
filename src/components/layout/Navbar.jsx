@@ -1,14 +1,23 @@
 // src/components/layout/Navbar.jsx
-import { useState } from 'react';
-import { MdMenu, MdNotifications, MdPerson } from 'react-icons/md';
-import { alerts } from '../../data/dummyData';
+import { useState, useEffect } from "react";
+import { MdMenu, MdNotifications, MdPerson } from "react-icons/md";
+import { alerts } from "../../data/dummyData";
 
 const Navbar = ({ setSidebarOpen }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  
+  const [user, setUser] = useState(null);
+
+  // ambil user login dari localStorage
+  useEffect(() => {
+    const savedUser = localStorage.getItem("loggedInUser");
+    if (savedUser) {
+      setUser(JSON.parse(savedUser));
+    }
+  }, []);
+
   // Count active alerts
-  const activeAlerts = alerts.filter(alert => alert.status === 'active').length;
+  const activeAlerts = alerts.filter((alert) => alert.status === "active").length;
 
   return (
     <header className="bg-white shadow-sm z-10">
@@ -23,7 +32,9 @@ const Navbar = ({ setSidebarOpen }) => {
             >
               <MdMenu className="h-6 w-6" />
             </button>
-            <h1 className="ml-2 md:ml-0 text-lg font-medium text-gray-800">Water Quality Monitoring System</h1>
+            <h1 className="ml-2 md:ml-0 text-lg font-medium text-gray-800">
+              Water Quality Monitoring System
+            </h1>
           </div>
 
           {/* Right side */}
@@ -48,32 +59,40 @@ const Navbar = ({ setSidebarOpen }) => {
                     <div className="px-4 py-2 border-b border-gray-100">
                       <p className="text-sm font-medium text-gray-700">Notifications</p>
                     </div>
-                    
-                    {alerts.filter(alert => alert.status === 'active').map((alert) => (
-                      <div key={alert.id} className="px-4 py-3 hover:bg-gray-50">
-                        <div className="flex items-start">
-                          <div className="flex-shrink-0">
-                            <div className={`h-3 w-3 rounded-full ${
-                              alert.parameter === 'Turbidity' ? 'bg-danger-500' : 'bg-warning-500'
-                            }`} />
-                          </div>
-                          <div className="ml-3 w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900">{alert.parameter} Alert</p>
-                            <p className="text-sm text-gray-500">{alert.message}</p>
-                            <p className="mt-1 text-xs text-gray-400">
-                              {new Date(alert.timestamp).toLocaleString()}
-                            </p>
+
+                    {alerts
+                      .filter((alert) => alert.status === "active")
+                      .map((alert) => (
+                        <div key={alert.id} className="px-4 py-3 hover:bg-gray-50">
+                          <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                              <div
+                                className={`h-3 w-3 rounded-full ${
+                                  alert.parameter === "Turbidity"
+                                    ? "bg-danger-500"
+                                    : "bg-warning-500"
+                                }`}
+                              />
+                            </div>
+                            <div className="ml-3 w-0 flex-1">
+                              <p className="text-sm font-medium text-gray-900">
+                                {alert.parameter} Alert
+                              </p>
+                              <p className="text-sm text-gray-500">{alert.message}</p>
+                              <p className="mt-1 text-xs text-gray-400">
+                                {new Date(alert.timestamp).toLocaleString()}
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                    
+                      ))}
+
                     {activeAlerts === 0 && (
                       <div className="px-4 py-3 text-sm text-gray-500">
                         No new notifications
                       </div>
                     )}
-                    
+
                     <div className="border-t border-gray-100 px-4 py-2">
                       <a
                         href="/alerts"
@@ -103,8 +122,12 @@ const Navbar = ({ setSidebarOpen }) => {
                 <div className="absolute right-0 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
                   <div className="py-1">
                     <div className="px-4 py-2 border-b border-gray-100">
-                      <p className="text-sm font-medium text-gray-900">Admin</p>
-                      <p className="text-sm text-gray-500">admin@undip.ac.id</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {user ? user.role : "Guest"}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {user ? user.email : "Not logged in"}
+                      </p>
                     </div>
                     <a
                       href="#profile"

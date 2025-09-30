@@ -43,14 +43,14 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         {/* Sidebar content */}
         <div className="px-4 py-4">
           <nav className="space-y-2">
-            <NavItem to="/" icon={<MdDashboard />} label="Dashboard" />
-            <NavItem to="/sensors/1" icon={<MdSensors />} label="Sensors" />
+            <NavItem to="/dashboard" icon={<MdDashboard />} label="Dashboard" />
+            <NavItem to="/sensors/" icon={<MdSensors />} label="Sensors" />
             <NavItem to="/alerts" icon={<MdNotifications />} label="Alerts" />
             <NavItem to="/reports" icon={<MdAssessment />} label="Reports" />
             
             <div className="pt-6 mt-6 border-t border-primary-700">
               <NavItem to="/settings" icon={<MdSettings />} label="Settings" />
-              <NavItem to="/login" icon={<MdLogout />} label="Logout" />
+              <NavItem to="/" icon={<MdLogout />} label="Logout" />
             </div>
           </nav>
         </div>
