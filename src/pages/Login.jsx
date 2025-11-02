@@ -1,30 +1,43 @@
-// src/pages/Login.jsx
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { users } from "../data/dummyData";
+import { useAuth } from "../context/AuthContext"; // Using AuthContext for login
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth(); // Get the login function from AuthContext
+
+  // Form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  // UI state
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = (e) => {
+  /**
+   * Handles the form submission, checks if the email and password are valid,
+   * and redirects the user to the dashboard if valid.
+   * @param {Event} e - The form submission event
+   */
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(""); // Clear previous error
+    setIsLoading(true); // Set loading state
 
-    // cari user di dummyData
-    const foundUser = users.find(
-      (user) => user.email === email && user.password === password
-    );
+    try {
+      console.log("📤 Submitting login form...");
+      console.log("   Email:", email);
 
-    if (foundUser) {
-      // simpan ke localStorage (pakai key yang konsisten)
-      localStorage.setItem("loggedInUser", JSON.stringify(foundUser));
+      // Using the updated login function from AuthContext
+      await login(email, password);
 
-      setError("");
-      navigate("/dashboard"); // redirect ke dashboard
-    } else {
-      setError("Invalid email or password");
+      console.log("✅ Login successful! Redirecting to dashboard...");
+      navigate("/dashboard"); // Redirect to dashboard after successful login
+    } catch (error) {
+      console.error("❌ Login error:", error);
+      setError(error.message || "Login failed. Please try again.");
+    } finally {
+      setIsLoading(false); // Set loading state back to false
     }
   };
 
@@ -49,6 +62,13 @@ const Login = () => {
         </h1>
         <p className="text-gray-500 text-sm mb-6">Sign in to your account</p>
 
+        {/* Error message */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
@@ -68,14 +88,15 @@ const Login = () => {
             required
           />
 
-          {/* Error message */}
-          {error && <p className="text-red-500 text-sm">{error}</p>}
-
+          {/* Submit Button */}
           <button
             type="submit"
-            className="w-full bg-cyan-400 hover:bg-cyan-500 text-white rounded-md py-2 font-medium"
+            disabled={isLoading}
+            className={`w-full bg-cyan-400 hover:bg-cyan-500 text-white rounded-md py-2 font-medium ${
+              isLoading ? "cursor-not-allowed bg-gray-400" : ""
+            }`}
           >
-            Sign In
+            {isLoading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
@@ -86,6 +107,18 @@ const Login = () => {
             Sign Up
           </Link>
         </p>
+
+        {/* Test Credentials Info (Development Only) */}
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-xs text-blue-600 font-medium mb-1">
+            Test Credentials:
+          </p>
+          <p className="text-xs text-blue-600">
+            Email: fattah.afr2@gmail.com
+            <br />
+            Password: (your password)
+          </p>
+        </div>
       </div>
     </div>
   );
