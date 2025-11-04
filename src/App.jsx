@@ -15,8 +15,6 @@ function App() {
     <Routes>
       {/* Auth pages */}
       <Route path="/" element={<Login />} />
-      <Route path="/signup" element={<SignUp />} />
-      <Route path="/verify" element={<VerifyEmail />} />
 
       {/* Protected routes */}
       <Route element={<DashboardLayout />}>
