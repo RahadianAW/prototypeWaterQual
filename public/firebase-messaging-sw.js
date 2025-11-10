@@ -1,0 +1,53 @@
+// Service Worker for FCM (background notifications)
+importScripts(
+  "https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"
+);
+importScripts(
+  "https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js"
+);
+
+// Firebase config (same as frontend)
+const firebaseConfig = {
+  apiKey: "AIzaSyC4tbgUYb0EnePaQA2TOI4VTsS1e4zrJeI",
+  authDomain: "water-quality-monitoring-dcdc0.firebaseapp.com",
+  databaseURL:
+    "https://water-quality-monitoring-dcdc0-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "water-quality-monitoring-dcdc0",
+  storageBucket: "water-quality-monitoring-dcdc0.firebasestorage.app",
+  messagingSenderId: "1012798196989",
+  appId: "1:1012798196989:web:a7e99e9605ada7f5e7c294",
+  measurementId: "G-JVXM7VEJ9F",
+};
+
+firebase.initializeApp(firebaseConfig);
+
+const messaging = firebase.messaging();
+
+// Background message handler
+messaging.onBackgroundMessage((payload) => {
+  console.log(
+    "[firebase-messaging-sw.js] Received background message:",
+    payload
+  );
+
+  const notificationTitle = payload.notification.title;
+  const notificationOptions = {
+    body: payload.notification.body,
+    icon: "/vite.svg",
+    badge: "/vite.svg",
+    tag: payload.data?.alert_id || "notification",
+    data: payload.data,
+  };
+
+  self.registration.showNotification(notificationTitle, notificationOptions);
+});
+
+// Notification click handler
+self.addEventListener("notificationclick", (event) => {
+  console.log("[firebase-messaging-sw.js] Notification clicked:", event);
+
+  event.notification.close();
+
+  // Open dashboard alerts page
+  event.waitUntil(clients.openWindow("http://localhost:5173/alerts"));
+});

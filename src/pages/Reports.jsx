@@ -48,18 +48,35 @@ const Reports = () => {
   // Get current date range
   const getCurrentDateRange = () => {
     if (datePreset === "custom") {
-      return customDateRange;
+      return {
+        start: customDateRange.start,
+        end: customDateRange.end,
+      };
     }
+    const preset = datePresets[datePreset];
     return {
-      start: datePresets[datePreset]?.start_date,
-      end: datePresets[datePreset]?.end_date,
+      start: preset?.start_date || "",
+      end: preset?.end_date || "",
     };
   };
 
-  // Load preview on mount or filter change
+  // ✅ FIX: Load preview when filters change OR custom date changes
   useEffect(() => {
-    handlePreview();
-  }, [datePreset, selectedLocation, selectedParameters]);
+    const dateRange = getCurrentDateRange();
+
+    console.log("🔄 useEffect triggered - Date range:", dateRange);
+
+    // Only load preview if date range is valid
+    if (dateRange.start && dateRange.end) {
+      handlePreview();
+    }
+  }, [
+    datePreset,
+    selectedLocation,
+    selectedParameters,
+    customDateRange.start, // ✅ Monitor custom start date
+    customDateRange.end, // ✅ Monitor custom end date
+  ]);
 
   // Handle preview
   const handlePreview = async () => {
@@ -69,7 +86,15 @@ const Reports = () => {
 
       const dateRange = getCurrentDateRange();
 
-      // Validate
+      console.log("📅 Preview with date range:", dateRange);
+
+      if (!dateRange.start || !dateRange.end) {
+        setError("Please select both start and end dates");
+        setPreview(null);
+        setLoading(false);
+        return;
+      }
+
       const validation = reportService.validateDateRange(
         dateRange.start,
         dateRange.end
@@ -78,10 +103,10 @@ const Reports = () => {
       if (!validation.valid) {
         setError(validation.error);
         setPreview(null);
+        setLoading(false);
         return;
       }
 
-      // Show warning for large ranges
       if (validation.warning) {
         console.warn(validation.warning);
       }
@@ -96,6 +121,7 @@ const Reports = () => {
       setPreview(previewData);
       setShowPreview(true);
     } catch (err) {
+      console.error("❌ Preview error:", err);
       setError(err.message);
       setPreview(null);
     } finally {
@@ -111,6 +137,23 @@ const Reports = () => {
 
       const dateRange = getCurrentDateRange();
 
+      if (!dateRange.start || !dateRange.end) {
+        alert("Please select both start and end dates");
+        setDownloading(false);
+        return;
+      }
+
+      const validation = reportService.validateDateRange(
+        dateRange.start,
+        dateRange.end
+      );
+
+      if (!validation.valid) {
+        alert(validation.error);
+        setDownloading(false);
+        return;
+      }
+
       await reportService.downloadReport({
         format,
         start_date: dateRange.start,
@@ -119,9 +162,9 @@ const Reports = () => {
         location: selectedLocation,
       });
 
-      // Success feedback
-      alert(`Report downloaded successfully!`);
+      alert(`${format.toUpperCase()} report downloaded successfully!`);
     } catch (err) {
+      console.error("❌ Download error:", err);
       setError(err.message);
       alert(`Failed to download report: ${err.message}`);
     } finally {
@@ -136,17 +179,6 @@ const Reports = () => {
     } else {
       setSelectedParameters([...selectedParameters, param]);
     }
-  };
-
-  // Get parameter label
-  const getParameterLabel = (param) => {
-    const units = {
-      ph: "",
-      tds: "ppm",
-      turbidity: "NTU",
-      temperature: "°C",
-    };
-    return units[param] || "";
   };
 
   return (
@@ -193,7 +225,10 @@ const Reports = () => {
               {Object.entries(datePresets).map(([key, preset]) => (
                 <button
                   key={key}
-                  onClick={() => setDatePreset(key)}
+                  onClick={() => {
+                    setDatePreset(key);
+                    console.log("📅 Selected preset:", key, preset);
+                  }}
                   className={`px-3 py-2 text-sm rounded-lg border transition ${
                     datePreset === key
                       ? "bg-primary-50 border-primary-500 text-primary-700 font-medium"
@@ -215,9 +250,11 @@ const Reports = () => {
                   type="date"
                   value={customDateRange.start}
                   onChange={(e) => {
+                    const newStart = e.target.value;
+                    console.log("📅 Custom start date changed:", newStart);
                     setCustomDateRange({
                       ...customDateRange,
-                      start: e.target.value,
+                      start: newStart,
                     });
                     setDatePreset("custom");
                   }}
@@ -232,9 +269,11 @@ const Reports = () => {
                   type="date"
                   value={customDateRange.end}
                   onChange={(e) => {
+                    const newEnd = e.target.value;
+                    console.log("📅 Custom end date changed:", newEnd);
                     setCustomDateRange({
                       ...customDateRange,
-                      end: e.target.value,
+                      end: newEnd,
                     });
                     setDatePreset("custom");
                   }}
@@ -244,15 +283,31 @@ const Reports = () => {
             </div>
 
             {/* Date Range Display */}
-            {getCurrentDateRange().start && (
+            {getCurrentDateRange().start && getCurrentDateRange().end && (
               <div className="mt-3 p-3 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-800">
                   <strong>Selected Period:</strong>{" "}
                   {reportService.formatDateDisplay(getCurrentDateRange().start)}{" "}
                   - {reportService.formatDateDisplay(getCurrentDateRange().end)}
                 </p>
+                {datePreset === "custom" && (
+                  <p className="text-xs text-blue-600 mt-1">
+                    (Custom Date Range)
+                  </p>
+                )}
               </div>
             )}
+
+            {/* Warning */}
+            {datePreset === "custom" &&
+              (!customDateRange.start || !customDateRange.end) && (
+                <div className="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                  <p className="text-sm text-yellow-800">
+                    <MdWarning className="inline mr-1" />
+                    Please select both start and end dates for custom range
+                  </p>
+                </div>
+              )}
           </div>
 
           {/* Parameters Selection */}
@@ -401,7 +456,7 @@ const Reports = () => {
                   return (
                     <tr key={key} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 uppercase">
-                        {key.replace("_", " ")}
+                        {key.replace(/_/g, " ")}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
                         {stats.avg}
@@ -425,7 +480,7 @@ const Reports = () => {
                     return (
                       <tr key={key} className="bg-green-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-800 uppercase">
-                          {key.replace("_", " ")}
+                          {key.replace(/_/g, " ")}
                         </td>
                         <td
                           colSpan={4}

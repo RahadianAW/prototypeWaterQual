@@ -63,7 +63,7 @@ const reportService = {
   downloadReport: async (options = {}) => {
     try {
       const {
-        format, // csv, excel, pdf
+        format,
         start_date,
         end_date,
         ipal_id = 1,
@@ -73,16 +73,10 @@ const reportService = {
 
       console.log("📥 Downloading report...", options);
 
-      // Validation
-      if (!format) {
-        throw new Error("Format is required (csv, excel, or pdf)");
+      if (!format || !start_date || !end_date) {
+        throw new Error("Format, start_date, and end_date are required");
       }
 
-      if (!start_date || !end_date) {
-        throw new Error("Start date and end date are required");
-      }
-
-      // Build query params
       const queryParams = new URLSearchParams({
         format,
         start_date,
@@ -92,11 +86,13 @@ const reportService = {
         location,
       });
 
-      // Get token
       const token = localStorage.getItem("token");
 
-      // ⭐ USE RELATIVE PATH (will use Vite proxy)
-      const url = `/api/reports/export?${queryParams}`;
+      // ⚠️ IMPORTANT: Use direct backend URL, bypass Vite proxy for binary files
+      const BACKEND_URL =
+        import.meta.env.VITE_API_URL || "http://localhost:3000";
+      const url = `${BACKEND_URL}/api/reports/export?${queryParams}`;
+
       console.log("🔗 Download URL:", url);
 
       // Fetch file as blob
@@ -105,26 +101,37 @@ const reportService = {
         headers: {
           Authorization: `Bearer ${token}`,
         },
+        // ⚠️ CRITICAL: Disable any response transformation
+        cache: "no-cache",
       });
 
       console.log("📡 Response status:", response.status);
-      console.log("📡 Response headers:", response.headers);
+      console.log("📡 Response headers:", {
+        contentType: response.headers.get("content-type"),
+        contentLength: response.headers.get("content-length"),
+        contentDisposition: response.headers.get("content-disposition"),
+      });
 
       if (!response.ok) {
-        // Try to parse error message
         const contentType = response.headers.get("content-type");
+
+        if (contentType && contentType.includes("text/html")) {
+          throw new Error(
+            "Backend returned HTML instead of file - check if backend is running!"
+          );
+        }
 
         if (contentType && contentType.includes("application/json")) {
           const error = await response.json();
           throw new Error(error.message || "Failed to download report");
-        } else {
-          throw new Error(
-            `Server returned ${response.status}: ${response.statusText}`
-          );
         }
+
+        throw new Error(
+          `Server returned ${response.status}: ${response.statusText}`
+        );
       }
 
-      // Get filename from Content-Disposition header
+      // Get filename
       const contentDisposition = response.headers.get("Content-Disposition");
       let filename = `water_quality_report_${start_date}_${end_date}`;
 
@@ -134,23 +141,24 @@ const reportService = {
           filename = filenameMatch[1];
         }
       } else {
-        // Add extension based on format
-        const extensions = {
-          csv: ".csv",
-          excel: ".xlsx",
-          pdf: ".pdf",
-        };
+        const extensions = { csv: ".csv", excel: ".xlsx", pdf: ".pdf" };
         filename += extensions[format] || "";
       }
 
       console.log("📄 Filename:", filename);
 
-      // Convert response to blob
+      // Convert to blob
       const blob = await response.blob();
       console.log("📦 Blob size:", blob.size, "bytes");
+      console.log("📦 Blob type:", blob.type);
 
       if (blob.size === 0) {
-        throw new Error("Downloaded file is empty");
+        throw new Error("Downloaded file is empty - check backend logs");
+      }
+
+      // Validate blob type
+      if (blob.type.includes("text/html")) {
+        throw new Error("Downloaded file is HTML page, not the actual report!");
       }
 
       // Create download link
