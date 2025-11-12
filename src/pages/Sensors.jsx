@@ -1,4 +1,4 @@
-// src/pages/Sensors.jsx
+// src/pages/Sensors.jsx (IMPROVED VERSION)
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -8,6 +8,9 @@ import {
   MdCheckCircle,
   MdError,
   MdAccessTime,
+  MdWarning,
+  MdTrendingUp,
+  MdTrendingDown,
 } from "react-icons/md";
 import sensorService from "../services/sensorServices";
 
@@ -15,9 +18,17 @@ const Sensors = () => {
   const [sensors, setSensors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(new Date());
 
   useEffect(() => {
     fetchSensors();
+
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      handleRefresh(true); // silent refresh
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const fetchSensors = async () => {
@@ -25,27 +36,37 @@ const Sensors = () => {
       setLoading(true);
       const data = await sensorService.getAllSensors({ ipal_id: 1 });
 
-      // Fetch latest reading untuk setiap sensor
-      const sensorsWithReadings = await Promise.all(
+      // Fetch latest reading + mini history untuk setiap sensor
+      const sensorsWithData = await Promise.all(
         data.map(async (sensor) => {
           try {
             const latestData = await sensorService.getSensorLatestReading(
               sensor.id
             );
+            const historyData = await sensorService.getSensorHistory(
+              sensor.id,
+              {
+                limit: 10, // Last 10 readings for sparkline
+              }
+            );
+
             return {
               ...sensor,
               latest_reading: latestData.latest_reading,
+              mini_history: historyData.history || [],
             };
           } catch (error) {
             return {
               ...sensor,
               latest_reading: null,
+              mini_history: [],
             };
           }
         })
       );
 
-      setSensors(sensorsWithReadings);
+      setSensors(sensorsWithData);
+      setLastRefresh(new Date());
     } catch (error) {
       console.error("Error fetching sensors:", error);
     } finally {
@@ -53,10 +74,10 @@ const Sensors = () => {
     }
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
+  const handleRefresh = async (silent = false) => {
+    if (!silent) setRefreshing(true);
     await fetchSensors();
-    setRefreshing(false);
+    if (!silent) setRefreshing(false);
   };
 
   // Group sensors by location
@@ -68,10 +89,6 @@ const Sensors = () => {
     acc[location].push(sensor);
     return acc;
   }, {});
-
-  const getStatusColor = (status) => {
-    return status === "active" ? "bg-green-500" : "bg-gray-300";
-  };
 
   const getSensorTypeLabel = (type) => {
     const labels = {
@@ -91,6 +108,174 @@ const Sensors = () => {
       temperature: "°C",
     };
     return units[type] || "";
+  };
+
+  // ========================================
+  // NEW: Status Badge with Pulse Animation
+  // ========================================
+  const SensorStatusBadge = ({ sensor }) => {
+    const timeSinceLastReading = sensor.latest_reading
+      ? new Date() - new Date(sensor.latest_reading.timestamp)
+      : null;
+
+    const isOnline =
+      timeSinceLastReading && timeSinceLastReading < 10 * 60 * 1000; // 10 min
+    const isWarning =
+      timeSinceLastReading && timeSinceLastReading < 30 * 60 * 1000; // 30 min
+
+    const formatLastSeen = (timestamp) => {
+      if (!timestamp) return "No data";
+      const diff = new Date() - new Date(timestamp);
+      const minutes = Math.floor(diff / 60000);
+
+      if (minutes < 1) return "Just now";
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      return `${Math.floor(hours / 24)}d ago`;
+    };
+
+    return (
+      <div className="flex items-center justify-between w-full text-xs">
+        <div className="flex items-center space-x-2">
+          {/* Pulse animation */}
+          <div className="relative">
+            <div
+              className={`h-2 w-2 rounded-full ${
+                isOnline
+                  ? "bg-green-500"
+                  : isWarning
+                  ? "bg-yellow-500"
+                  : "bg-gray-300"
+              }`}
+            ></div>
+            {isOnline && (
+              <div className="absolute inset-0 h-2 w-2 rounded-full bg-green-500 animate-ping opacity-75"></div>
+            )}
+          </div>
+          <span
+            className={`font-medium ${
+              isOnline
+                ? "text-green-700"
+                : isWarning
+                ? "text-yellow-700"
+                : "text-gray-500"
+            }`}
+          >
+            {isOnline ? "Online" : isWarning ? "Warning" : "Offline"}
+          </span>
+        </div>
+        <span className="text-gray-500">
+          {sensor.latest_reading
+            ? formatLastSeen(sensor.latest_reading.timestamp)
+            : "No data"}
+        </span>
+      </div>
+    );
+  };
+
+  // ========================================
+  // NEW: Threshold Warning
+  // ========================================
+  const ThresholdWarning = ({ value, sensorType }) => {
+    if (!value) return null;
+
+    const thresholds = {
+      ph: { min: 6, max: 9, label: "6-9" },
+      tds: { max: 500, label: "< 500 ppm" },
+      turbidity: { max: 5, label: "< 5 NTU" },
+      temperature: { min: 20, max: 35, label: "20-35°C" },
+    };
+
+    const threshold = thresholds[sensorType];
+    if (!threshold) return null;
+
+    const isAboveMax = threshold.max && value > threshold.max;
+    const isBelowMin = threshold.min && value < threshold.min;
+
+    if (!isAboveMax && !isBelowMin) {
+      return (
+        <div className="flex items-center text-green-600 text-xs mt-1">
+          <MdCheckCircle className="mr-1" /> Normal
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center text-red-600 text-xs mt-1">
+        <MdWarning className="mr-1" />
+        {isAboveMax ? "Above" : "Below"} threshold!
+      </div>
+    );
+  };
+
+  // ========================================
+  // NEW: Mini Sparkline Chart
+  // ========================================
+  const MiniSparkline = ({ data, color = "#3b82f6" }) => {
+    if (!data || data.length < 2) return null;
+
+    const values = data.map((d) => d.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || 1;
+
+    // Generate SVG path
+    const points = values.map((val, idx) => {
+      const x = (idx / (values.length - 1)) * 100;
+      const y = 100 - ((val - min) / range) * 100;
+      return `${x},${y}`;
+    });
+
+    return (
+      <div className="h-12 -mx-3 -mb-3 overflow-hidden rounded-b-lg bg-gradient-to-t from-gray-50 to-transparent">
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="w-full h-full"
+        >
+          <polyline
+            points={points.join(" ")}
+            fill="none"
+            stroke={color}
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      </div>
+    );
+  };
+
+  // ========================================
+  // NEW: Trend Indicator
+  // ========================================
+  const TrendIndicator = ({ history }) => {
+    if (!history || history.length < 2) return null;
+
+    const current = history[0]?.value;
+    const previous = history[1]?.value;
+
+    if (!current || !previous) return null;
+
+    const change = ((current - previous) / previous) * 100;
+    const isIncrease = change > 0;
+
+    if (Math.abs(change) < 0.1) return null; // No significant change
+
+    return (
+      <div
+        className={`flex items-center text-xs ${
+          isIncrease ? "text-orange-600" : "text-blue-600"
+        }`}
+      >
+        {isIncrease ? (
+          <MdTrendingUp className="mr-1" />
+        ) : (
+          <MdTrendingDown className="mr-1" />
+        )}
+        <span>{Math.abs(change).toFixed(1)}%</span>
+      </div>
+    );
   };
 
   if (loading) {
@@ -114,13 +299,17 @@ const Sensors = () => {
               Sensor Management
             </h2>
             <p className="text-sm text-gray-500">
-              Monitor all sensors in IPAL UNDIP
+              Monitor all sensors in IPAL UNDIP • Last update:{" "}
+              {lastRefresh.toLocaleTimeString("id-ID", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </p>
           </div>
         </div>
 
         <button
-          onClick={handleRefresh}
+          onClick={() => handleRefresh(false)}
           disabled={refreshing}
           className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
         >
@@ -148,9 +337,16 @@ const Sensors = () => {
         <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Active</p>
+              <p className="text-sm text-gray-500">Online</p>
               <p className="text-2xl font-bold text-green-600">
-                {sensors.filter((s) => s.status === "active").length}
+                {
+                  sensors.filter((s) => {
+                    const timeDiff = s.latest_reading
+                      ? new Date() - new Date(s.latest_reading.timestamp)
+                      : null;
+                    return timeDiff && timeDiff < 10 * 60 * 1000;
+                  }).length
+                }
               </p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
@@ -201,75 +397,84 @@ const Sensors = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {locationSensors.map((sensor) => (
-              <Link
-                key={sensor.id}
-                to={`/sensors/${sensor.id}`}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:shadow-md hover:border-primary-300 transition-all group"
-              >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h4 className="text-base font-semibold text-gray-900 group-hover:text-primary-600 transition">
-                      {getSensorTypeLabel(sensor.sensor_type)}
-                    </h4>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {sensor.sensor_location}
-                    </p>
-                  </div>
-                  <div
-                    className={`h-2 w-2 rounded-full ${getStatusColor(
-                      sensor.status
-                    )}`}
-                  ></div>
-                </div>
+            {locationSensors.map((sensor) => {
+              const unit = getSensorUnit(sensor.sensor_type);
+              const sparklineColor =
+                sensor.sensor_location === "inlet" ? "#8b5cf6" : "#f97316";
 
-                {/* Latest Reading */}
-                {sensor.latest_reading ? (
-                  <div className="bg-gray-50 rounded-lg p-3 mb-3">
-                    <p className="text-xs text-gray-500 mb-1">Latest Value</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {sensor.latest_reading.value}
-                      <span className="text-sm font-normal text-gray-500 ml-1">
-                        {getSensorUnit(sensor.sensor_type)}
+              return (
+                <Link
+                  key={sensor.id}
+                  to={`/sensors/${sensor.id}`}
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-primary-300 transition-all group overflow-hidden"
+                >
+                  <div className="p-5 pb-3">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h4 className="text-base font-semibold text-gray-900 group-hover:text-primary-600 transition">
+                          {getSensorTypeLabel(sensor.sensor_type)}
+                        </h4>
+                        <p className="text-xs text-gray-500 mt-1 capitalize">
+                          {sensor.sensor_location}
+                        </p>
+                      </div>
+                      <TrendIndicator history={sensor.mini_history} />
+                    </div>
+
+                    {/* Latest Reading */}
+                    {sensor.latest_reading ? (
+                      <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-3 mb-3">
+                        <p className="text-xs text-gray-500 mb-1">
+                          Latest Value
+                        </p>
+                        <div className="flex items-end justify-between">
+                          <p className="text-2xl font-bold text-gray-900">
+                            {sensor.latest_reading.value}
+                            <span className="text-sm font-normal text-gray-500 ml-1">
+                              {unit}
+                            </span>
+                          </p>
+                        </div>
+                        <ThresholdWarning
+                          value={sensor.latest_reading.value}
+                          sensorType={sensor.sensor_type}
+                        />
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                        <p className="text-sm text-gray-400 text-center">
+                          No data available
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Status Badge */}
+                    <div className="mb-3">
+                      <SensorStatusBadge sensor={sensor} />
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-gray-100">
+                      <span className="text-gray-500 flex items-center">
+                        <MdAccessTime className="mr-1" />
+                        {sensor.mini_history.length} readings
                       </span>
-                    </p>
-                    <p className="text-xs text-gray-400 mt-1 flex items-center">
-                      <MdAccessTime className="mr-1" />
-                      {new Date(
-                        sensor.latest_reading.timestamp
-                      ).toLocaleTimeString("id-ID", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
+                      <span className="text-primary-600 group-hover:underline flex items-center font-medium">
+                        View Details
+                        <MdArrowForward className="ml-1" />
+                      </span>
+                    </div>
                   </div>
-                ) : (
-                  <div className="bg-gray-50 rounded-lg p-3 mb-3">
-                    <p className="text-sm text-gray-400 text-center">
-                      No data available
-                    </p>
-                  </div>
-                )}
 
-                {/* Footer */}
-                <div className="flex items-center justify-between text-xs">
-                  <span
-                    className={`inline-flex items-center px-2 py-1 rounded-full ${
-                      sensor.status === "active"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-gray-100 text-gray-600"
-                    }`}
-                  >
-                    {sensor.status === "active" ? "Active" : "Inactive"}
-                  </span>
-                  <span className="text-primary-600 group-hover:underline flex items-center font-medium">
-                    View Details
-                    <MdArrowForward className="ml-1" />
-                  </span>
-                </div>
-              </Link>
-            ))}
+                  {/* Mini Sparkline Chart */}
+                  <MiniSparkline
+                    data={sensor.mini_history.slice().reverse()}
+                    color={sparklineColor}
+                  />
+                </Link>
+              );
+            })}
           </div>
         </div>
       ))}

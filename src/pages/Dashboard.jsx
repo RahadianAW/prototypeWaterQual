@@ -1,4 +1,6 @@
 // src/pages/Dashboard.jsx
+// 🔥 IMPROVED VERSION - Better Layout, Recommendations, Violations Display
+
 import React, { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -17,10 +19,17 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
+  BarChart3,
+  AlertTriangle,
+  Wrench,
+  Info,
+  ShieldAlert,
+  Lightbulb,
 } from "lucide-react";
 
 // Components
 import LineChart from "../components/charts/LineChart";
+import QualityScoreChart from "../components/charts/QualityScoreCharts";
 import StatsOverview from "../components/ui/StatsOverview";
 import Select from "../components/ui/Select";
 import Button from "../components/ui/Button";
@@ -61,10 +70,12 @@ const Dashboard = () => {
   // UI State
   const [selectedPlace, setSelectedPlace] = useState("");
   const [currentParamIndex, setCurrentParamIndex] = useState(0);
+  const [selectedPeriod, setSelectedPeriod] = useState("week");
 
   // Data State
   const [dashboardData, setDashboardData] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
+  const [qualityChartData, setQualityChartData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -101,9 +112,17 @@ const Dashboard = () => {
     { value: "outlet", label: "🟢 Outlet (Air Keluar)" },
   ];
 
+  // Period options for quality chart
+  const periodOptions = [
+    { value: "today", label: "📅 Today" },
+    { value: "yesterday", label: "📅 Yesterday" },
+    { value: "week", label: "📅 Last 7 Days" },
+  ];
+
   // Fetch dashboard data on mount
   useEffect(() => {
     fetchDashboardData();
+    fetchQualityScoreData();
   }, []);
 
   // Fetch historical data when location selected
@@ -112,6 +131,11 @@ const Dashboard = () => {
       fetchHistoricalData();
     }
   }, [selectedPlace]);
+
+  // Fetch quality chart data when period changes
+  useEffect(() => {
+    fetchQualityScoreData();
+  }, [selectedPeriod]);
 
   const fetchDashboardData = async () => {
     try {
@@ -144,9 +168,29 @@ const Dashboard = () => {
     }
   };
 
+  const fetchQualityScoreData = async () => {
+    try {
+      console.log(`📊 Fetching quality score data (${selectedPeriod})...`);
+      const result = await dashboardService.getReadingsForChart(IPAL_ID, {
+        period: selectedPeriod,
+        limit: selectedPeriod === "today" ? 24 : 50,
+      });
+      console.log("✅ Quality chart data received:", result);
+
+      // Backend returns: { success, count, period, data: [...] }
+      const chartData = result.data || result || [];
+      console.log(`   Extracted ${chartData.length} data points for chart`);
+      setQualityChartData(chartData);
+    } catch (err) {
+      console.error("❌ Error fetching quality chart:", err);
+      setQualityChartData([]);
+    }
+  };
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     await fetchDashboardData();
+    await fetchQualityScoreData();
     if (selectedPlace) {
       await fetchHistoricalData();
     }
@@ -157,8 +201,11 @@ const Dashboard = () => {
   const latestReading = dashboardData?.latest_reading;
   const currentData =
     selectedPlace && latestReading ? latestReading[selectedPlace] : null;
-  const fuzzyStatus = latestReading?.fuzzy_analysis?.status || null;
-  const qualityScore = latestReading?.fuzzy_analysis?.quality_score || 0;
+  const fuzzyAnalysis = latestReading?.fuzzy_analysis || null;
+  const fuzzyStatus = fuzzyAnalysis?.status || null;
+  const qualityScore = fuzzyAnalysis?.quality_score || 0;
+  const recommendations = fuzzyAnalysis?.recommendations || [];
+  const violations = fuzzyAnalysis?.violations || [];
 
   // Transform data for chart
   const currentParam = parameters[currentParamIndex];
@@ -174,6 +221,66 @@ const Dashboard = () => {
       };
     })
     .filter((d) => d !== null);
+
+  // Calculate summary from quality chart data
+  const qualitySummary =
+    Array.isArray(qualityChartData) && qualityChartData.length > 0
+      ? {
+          avgScore: Math.round(
+            qualityChartData.reduce(
+              (sum, d) => sum + (d.quality_score || 0),
+              0
+            ) / qualityChartData.length
+          ),
+          totalViolations: qualityChartData.reduce(
+            (sum, d) => sum + (d.alert_count || 0),
+            0
+          ),
+          dataPoints: qualityChartData.length,
+        }
+      : null;
+
+  // Priority icons and colors
+  const getPriorityConfig = (priority) => {
+    const configs = {
+      critical: {
+        icon: ShieldAlert,
+        color: "text-red-600",
+        bg: "bg-red-50",
+        border: "border-red-200",
+      },
+      high: {
+        icon: AlertTriangle,
+        color: "text-orange-600",
+        bg: "bg-orange-50",
+        border: "border-orange-200",
+      },
+      medium: {
+        icon: AlertCircle,
+        color: "text-yellow-600",
+        bg: "bg-yellow-50",
+        border: "border-yellow-200",
+      },
+      low: {
+        icon: Info,
+        color: "text-blue-600",
+        bg: "bg-blue-50",
+        border: "border-blue-200",
+      },
+    };
+    return configs[priority] || configs.low;
+  };
+
+  // Type icons
+  const getTypeIcon = (type) => {
+    const icons = {
+      treatment: Droplet,
+      maintenance: Wrench,
+      monitoring: Activity,
+      system: AlertCircle,
+    };
+    return icons[type] || Lightbulb;
+  };
 
   // Loading State
   if (isLoading) {
@@ -219,7 +326,7 @@ const Dashboard = () => {
     );
   }
 
-  // Empty State (No data in database)
+  // Empty State
   if (!dashboardData || !latestReading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4">
@@ -255,7 +362,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-        {/* Modern Header with Glassmorphism */}
+        {/* Header */}
         <div className="relative bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-indigo-600/5"></div>
           <div className="relative p-6 sm:p-8">
@@ -300,7 +407,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Stats Overview with Animation */}
+        {/* Stats Overview */}
         {qualityScore > 0 && (
           <div className="animate-fade-in">
             <StatsOverview
@@ -311,7 +418,190 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Enhanced Location Selector */}
+        {/* 🆕 VIOLATIONS & RECOMMENDATIONS SECTION */}
+        {(violations.length > 0 || recommendations.length > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Violations */}
+            {violations.length > 0 && (
+              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-red-200 overflow-hidden">
+                <div className="p-5 border-b bg-gradient-to-r from-red-50/50 to-orange-50/50">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-gradient-to-br from-red-500 to-orange-600 p-2.5 rounded-xl">
+                      <AlertTriangle className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-lg">
+                        Active Violations
+                      </h3>
+                      <p className="text-xs text-gray-600 mt-0.5">
+                        {violations.length} parameter(s) out of range
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-5 space-y-3 max-h-[400px] overflow-y-auto">
+                  {violations.map((violation, idx) => {
+                    const config = getPriorityConfig(violation.severity);
+                    const Icon = config.icon;
+                    return (
+                      <div
+                        key={idx}
+                        className={`${config.bg} ${config.border} border rounded-xl p-4 hover:shadow-md transition-shadow`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Icon
+                            className={`w-5 h-5 ${config.color} flex-shrink-0 mt-0.5`}
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-semibold text-gray-900">
+                                {violation.parameter}
+                              </span>
+                              <span
+                                className={`text-xs font-bold ${config.color} uppercase`}
+                              >
+                                {violation.severity}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-700 mb-2">
+                              {violation.message}
+                            </p>
+                            <div className="flex items-center gap-4 text-xs text-gray-600">
+                              <span>
+                                Current:{" "}
+                                <strong>{violation.current_value}</strong>
+                              </span>
+                              <span>
+                                Limit: <strong>{violation.threshold}</strong>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Recommendations */}
+            {recommendations.length > 0 && (
+              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-200 overflow-hidden">
+                <div className="p-5 border-b bg-gradient-to-r from-blue-50/50 to-indigo-50/50">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl">
+                      <Lightbulb className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-gray-900 text-lg">
+                        Recommendations
+                      </h3>
+                      <p className="text-xs text-gray-600 mt-0.5">
+                        {recommendations.length} action item(s) suggested
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="p-5 space-y-3 max-h-[400px] overflow-y-auto">
+                  {recommendations.map((rec, idx) => {
+                    const config = getPriorityConfig(rec.priority);
+                    const TypeIcon = getTypeIcon(rec.type);
+                    const Icon = config.icon;
+                    return (
+                      <div
+                        key={idx}
+                        className={`${config.bg} ${config.border} border rounded-xl p-4 hover:shadow-md transition-shadow`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <TypeIcon
+                            className={`w-5 h-5 ${config.color} flex-shrink-0 mt-0.5`}
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-semibold text-gray-500 uppercase">
+                                {rec.type}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <Icon
+                                  className={`w-3.5 h-3.5 ${config.color}`}
+                                />
+                                <span
+                                  className={`text-xs font-bold ${config.color} uppercase`}
+                                >
+                                  {rec.priority}
+                                </span>
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-700">
+                              {rec.message}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Quality Score Trend Chart */}
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+          <div className="p-5 sm:p-6 border-b bg-gradient-to-r from-green-50/50 to-emerald-50/50">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center space-x-3">
+                <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-2.5 rounded-xl">
+                  <BarChart3 className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-lg">
+                    Quality Score Trend
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    Fuzzy logic analysis over time
+                  </p>
+                </div>
+              </div>
+              <Select
+                value={selectedPeriod}
+                onChange={(e) => setSelectedPeriod(e.target.value)}
+                options={periodOptions}
+                className="w-full sm:w-48"
+              />
+            </div>
+
+            {/* Summary Cards */}
+            {qualitySummary && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                <div className="bg-white/70 rounded-lg p-3 border">
+                  <p className="text-xs text-gray-600 mb-1">Average Score</p>
+                  <p className="text-xl font-bold text-blue-600">
+                    {qualitySummary.avgScore}/100
+                  </p>
+                </div>
+                <div className="bg-white/70 rounded-lg p-3 border">
+                  <p className="text-xs text-gray-600 mb-1">Total Violations</p>
+                  <p className="text-xl font-bold text-red-600">
+                    {qualitySummary.totalViolations}
+                  </p>
+                </div>
+                <div className="bg-white/70 rounded-lg p-3 border">
+                  <p className="text-xs text-gray-600 mb-1">Data Points</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {qualitySummary.dataPoints}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="p-6 h-[450px]">
+            <QualityScoreChart data={qualityChartData} height={380} />
+          </div>
+        </div>
+
+        {/* Location Selector */}
         <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-shadow duration-300">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-center space-x-3">
@@ -365,7 +655,7 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Modern Parameter Cards Grid */}
+        {/* Parameter Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {parameters.map((param, idx) => (
             <div
@@ -385,24 +675,26 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* Enhanced Map & Chart Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Modern Map Panel */}
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 overflow-hidden hover:shadow-2xl transition-shadow duration-300 h-[400px] sm:h-[500px]">
-            <div className="p-4 sm:p-5 border-b bg-gradient-to-r from-blue-50/50 to-indigo-50/50">
+        {/* 🔥 IMPROVED LAYOUT: Map Smaller, Chart Larger */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Map Panel - 1/3 width on desktop */}
+          <div className="lg:col-span-1 bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 overflow-hidden hover:shadow-2xl transition-shadow duration-300 h-[400px]">
+            <div className="p-4 border-b bg-gradient-to-r from-blue-50/50 to-indigo-50/50">
               <div className="flex items-center space-x-3">
                 <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 rounded-lg">
                   <MapPin className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900">IPAL Location</h3>
+                  <h3 className="font-bold text-gray-900 text-sm">
+                    IPAL Location
+                  </h3>
                   <p className="text-xs text-gray-600 mt-0.5">
-                    Teknik Lingkungan Undip
+                    Teknik Lingkungan
                   </p>
                 </div>
               </div>
             </div>
-            <div className="h-[calc(100%-76px)]">
+            <div className="h-[calc(100%-65px)]">
               <MapContainer
                 center={[-7.0506, 110.4397]}
                 zoom={18}
@@ -435,15 +727,15 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Modern Chart Panel */}
-          <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 overflow-hidden hover:shadow-2xl transition-shadow duration-300 h-[400px] sm:h-[500px] flex flex-col">
-            <div className="p-4 sm:p-5 border-b bg-gradient-to-r from-purple-50/50 to-pink-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          {/* Chart Panel - 2/3 width on desktop */}
+          <div className="lg:col-span-2 bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 overflow-hidden hover:shadow-2xl transition-shadow duration-300 h-[400px] flex flex-col">
+            <div className="p-4 border-b bg-gradient-to-r from-purple-50/50 to-pink-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center space-x-3">
                 <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-2 rounded-lg">
                   <Activity className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-900">
+                  <h3 className="font-bold text-gray-900 text-sm">
                     {selectedPlace
                       ? `${currentParam.name} Trend`
                       : "Parameter Trend"}
@@ -486,7 +778,7 @@ const Dashboard = () => {
               )}
             </div>
 
-            <div className="flex-1 p-4 sm:p-6 overflow-hidden">
+            <div className="flex-1 p-4 overflow-hidden">
               {!selectedPlace ? (
                 <div className="h-full flex items-center justify-center">
                   <div className="text-center max-w-xs">
@@ -497,8 +789,7 @@ const Dashboard = () => {
                       Select Location First
                     </p>
                     <p className="text-sm text-gray-500">
-                      Choose Inlet or Outlet to view real-time trends and
-                      historical data
+                      Choose Inlet or Outlet to view real-time trends
                     </p>
                   </div>
                 </div>
@@ -510,6 +801,7 @@ const Dashboard = () => {
                     name={currentParam.name}
                     color={currentParam.color}
                     unit={currentParam.unit}
+                    height={280}
                   />
                 </div>
               ) : (
@@ -522,7 +814,7 @@ const Dashboard = () => {
                       No Historical Data
                     </p>
                     <p className="text-sm text-gray-500">
-                      Data will appear after sensor readings are collected
+                      Data will appear after readings are collected
                     </p>
                   </div>
                 </div>
