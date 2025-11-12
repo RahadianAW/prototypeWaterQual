@@ -6,6 +6,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    allowedHosts: [
+      "f91909b05f3b.ngrok-free.app",
+      ".ngrok-free.app", // Untuk mengizinkan semua subdomain ngrok
+    ],
     proxy: {
       "/api": {
         target: "http://localhost:3000",

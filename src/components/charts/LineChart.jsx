@@ -90,38 +90,46 @@ const LineChart = ({
   const formatXAxis = (value, index) => {
     if (!value) return "";
 
-    // If data already has "time" property, use it
-    if (data[index]?.time) {
-      return data[index].time;
+    // If data has display fields, use them (but re-format to ensure consistency)
+    if (data[index]?.time_display || data[index]?.date_display) {
+      // Use display fields but validate they're proper
+      const timeSpan = getDataTimeSpan(data);
+      if (timeSpan > 24 * 60 * 60 * 1000) {
+        // More than 1 day - show date
+        return data[index].date_display || "";
+      } else {
+        // Same day - show time
+        return data[index].time_display || "";
+      }
     }
 
-    // If data has "date" property, use it
-    if (data[index]?.date) {
-      return data[index].date;
-    }
-
-    // Try to parse as ISO timestamp
+    // Parse ISO timestamp
     try {
       const date = new Date(value);
-      if (isNaN(date.getTime())) return "";
+      if (isNaN(date.getTime())) {
+        console.warn("Invalid date in formatXAxis:", value);
+        return "";
+      }
 
       // If data spans multiple days, show date + time
       const timeSpan = getDataTimeSpan(data);
       if (timeSpan > 24 * 60 * 60 * 1000) {
         // More than 1 day
-        return date.toLocaleDateString("id-ID", {
+        return date.toLocaleDateString("en-US", {
           day: "2-digit",
           month: "short",
         });
       } else {
         // Same day, show time only
-        return date.toLocaleTimeString("id-ID", {
+        return date.toLocaleTimeString("en-US", {
           hour: "2-digit",
           minute: "2-digit",
+          hour12: false,
         });
       }
     } catch (error) {
-      return String(value);
+      console.error("Error formatting X-axis:", error, value);
+      return String(value).substring(0, 10);
     }
   };
 
@@ -155,22 +163,24 @@ const LineChart = ({
     try {
       const date = new Date(label);
       if (!isNaN(date.getTime())) {
-        formattedTime = date.toLocaleString("id-ID", {
+        formattedTime = date.toLocaleString("en-US", {
           weekday: "short",
           year: "numeric",
           month: "short",
           day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
+          hour12: false,
         });
       }
     } catch (error) {
+      console.error("Error formatting tooltip time:", error);
       // Keep original label if parsing fails
     }
 
     return (
       <div className="bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-xl border border-gray-200">
-        <p className="text-xs text-gray-600 mb-2 font-medium">
+        <p className="text-xs text-gray-600 mb-2 font-medium font-mono">
           {formattedTime}
         </p>
         <div className="space-y-1.5">
@@ -189,7 +199,7 @@ const LineChart = ({
                 </span>
               </div>
               <span
-                className="text-sm font-bold"
+                className="text-sm font-bold font-mono"
                 style={{ color: entry.color }}
               >
                 {entry.value != null ? entry.value.toFixed(2) : "N/A"}
@@ -336,17 +346,33 @@ const LineChart = ({
       {/* Data Info */}
       <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
         <div>
-          <span className="font-medium text-gray-700">{data.length}</span> data
-          points
+          <span className="font-medium text-gray-700 font-mono">
+            {data.length}
+          </span>{" "}
+          data points
         </div>
         {data.length > 0 &&
           data[0][xAxisKey] &&
           data[data.length - 1][xAxisKey] && (
-            <div>
-              {new Date(data[0][xAxisKey]).toLocaleDateString("id-ID")} -{" "}
-              {new Date(data[data.length - 1][xAxisKey]).toLocaleDateString(
-                "id-ID"
-              )}
+            <div className="font-mono">
+              {(() => {
+                try {
+                  const start = new Date(data[0][xAxisKey]);
+                  const end = new Date(data[data.length - 1][xAxisKey]);
+                  if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                    return `${start.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })} - ${end.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}`;
+                  }
+                  return "";
+                } catch (e) {
+                  return "";
+                }
+              })()}
             </div>
           )}
       </div>

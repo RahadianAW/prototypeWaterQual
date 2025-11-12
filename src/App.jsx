@@ -10,6 +10,7 @@ import Alerts from "./pages/Alerts";
 import Reports from "./pages/Reports";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Sensors from "./pages/Sensors";
+import ProtectedRoute from "./components/ProtectedRoute";
 import {
   requestNotificationPermission,
   registerFCMToken,
@@ -19,6 +20,8 @@ import {
 function App() {
   // ⭐ FCM INITIALIZATION
   useEffect(() => {
+    let unsubscribe = null;
+
     const initFCM = async () => {
       // Check if user is logged in
       const token = localStorage.getItem("token");
@@ -35,6 +38,17 @@ function App() {
 
             // Register token to backend
             await registerFCMToken(result.token);
+
+            // Listen for foreground notifications (after successful init)
+            unsubscribe = onMessageListener((payload) => {
+              console.log("📬 Foreground notification received:", payload);
+
+              // Optional: Show toast notification in UI
+              // You can add react-toastify or custom notification here
+              alert(
+                `🔔 ${payload.notification.title}\n${payload.notification.body}`
+              );
+            });
           } else {
             console.log("⚠️ FCM initialization skipped:", result.error);
           }
@@ -49,23 +63,28 @@ function App() {
     // Initialize FCM
     initFCM();
 
-    // Listen for foreground notifications
-    onMessageListener((payload) => {
-      console.log("📬 Foreground notification received:", payload);
-
-      // Optional: Show toast notification in UI
-      // You can add react-toastify or custom notification here
-      alert(`🔔 ${payload.notification.title}\n${payload.notification.body}`);
-    });
+    // Cleanup: unsubscribe from message listener on unmount
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []); // Run once on mount
 
   return (
     <Routes>
       {/* Auth pages */}
       <Route path="/" element={<Login />} />
+      <Route path="/login" element={<Login />} />
 
       {/* Protected routes */}
-      <Route element={<DashboardLayout />}>
+      <Route
+        element={
+          <ProtectedRoute>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/sensors" element={<Sensors />} />
         <Route path="/sensors/:id" element={<SensorDetail />} />

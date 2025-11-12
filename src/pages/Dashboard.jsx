@@ -39,9 +39,6 @@ import DataCard from "../components/ui/DataCard";
 import dashboardService from "../services/dashboardService";
 import sensorService from "../services/sensorServices";
 
-// Helpers
-import { formatChartTime } from "../utils/waterQualityHelpers";
-
 // Fix leaflet default icon
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -216,7 +213,7 @@ const Dashboard = () => {
         return null;
       }
       return {
-        timestamp: formatChartTime(reading.timestamp),
+        timestamp: reading.timestamp, // Use ISO string directly
         value: reading[location][currentParam.key],
       };
     })

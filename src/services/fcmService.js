@@ -1,25 +1,41 @@
-import { getMessaging, getToken, onMessage } from "firebase/messaging";
-import { initializeApp } from "firebase/app";
+import {
+  getMessaging,
+  getToken,
+  onMessage,
+  isSupported,
+} from "firebase/messaging";
+import app from "../config/firebase";
 
-// Firebase config
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+// Initialize messaging only if supported
+let messaging = null;
+
+const initMessaging = async () => {
+  try {
+    const supported = await isSupported();
+    if (supported) {
+      messaging = getMessaging(app);
+      console.log("✅ FCM Messaging initialized");
+    } else {
+      console.log("⚠️ FCM not supported in this environment");
+    }
+  } catch (error) {
+    console.log("⚠️ FCM initialization error:", error.message);
+  }
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
+// Initialize on module load
+initMessaging();
 
 /**
  * Request notification permission & get FCM token
  */
 export async function requestNotificationPermission() {
   try {
+    if (!messaging) {
+      console.log("⚠️ FCM not available - skipping notification request");
+      return { success: false, error: "FCM not supported" };
+    }
+
     console.log("🔔 Requesting notification permission...");
 
     // Request permission
@@ -90,21 +106,33 @@ export async function registerFCMToken(token) {
  * Listen for foreground messages
  */
 export function onMessageListener(callback) {
-  onMessage(messaging, (payload) => {
-    console.log("🔔 Foreground message received:", payload);
+  if (!messaging) {
+    console.log("⚠️ FCM not available - skipping message listener");
+    return () => {}; // Return empty unsubscribe function
+  }
 
-    // Show browser notification
-    if (Notification.permission === "granted") {
-      new Notification(payload.notification.title, {
-        body: payload.notification.body,
-        icon: "/vite.svg",
-        tag: payload.data?.alert_id || "notification",
-      });
-    }
+  try {
+    const unsubscribe = onMessage(messaging, (payload) => {
+      console.log("🔔 Foreground message received:", payload);
 
-    // Call callback for UI updates
-    if (callback) {
-      callback(payload);
-    }
-  });
+      // Show browser notification
+      if (Notification.permission === "granted") {
+        new Notification(payload.notification.title, {
+          body: payload.notification.body,
+          icon: "/vite.svg",
+          tag: payload.data?.alert_id || "notification",
+        });
+      }
+
+      // Call callback for UI updates
+      if (callback) {
+        callback(payload);
+      }
+    });
+
+    return unsubscribe;
+  } catch (error) {
+    console.error("❌ Error setting up message listener:", error);
+    return () => {};
+  }
 }
