@@ -119,15 +119,15 @@ const dashboardService = {
       );
 
       console.log("✅ Chart data fetched successfully");
-      console.log("   Total readings:", response.data?.count || 0);
-      console.log("   Period:", response.data?.period);
-      console.log("   Date range:", response.data?.date_range);
+      console.log("   Total readings:", response.count || 0);
+      console.log("   Period:", response.period);
+      console.log("   Date range:", response.date_range);
       console.log(
         "   Avg quality score:",
-        response.data?.summary?.average_quality_score
+        response.summary?.average_quality_score
       );
 
-      return response.data;
+      return response;
     } catch (error) {
       console.error("❌ Failed to fetch chart data:", error.message);
       throw error;

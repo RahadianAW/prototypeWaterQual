@@ -38,6 +38,11 @@ import DataCard from "../components/ui/DataCard";
 // Services
 import dashboardService from "../services/dashboardService";
 import sensorService from "../services/sensorServices";
+import {
+  useDashboardSummary,
+  useDashboardReadings,
+  useSensorReadings,
+} from "../hooks/useQueryHooks";
 
 // Fix leaflet default icon
 delete L.Icon.Default.prototype._getIconUrl;
@@ -69,15 +74,47 @@ const Dashboard = () => {
   const [currentParamIndex, setCurrentParamIndex] = useState(0);
   const [selectedPeriod, setSelectedPeriod] = useState("week");
 
-  // Data State
-  const [dashboardData, setDashboardData] = useState(null);
-  const [historicalData, setHistoricalData] = useState([]);
-  const [qualityChartData, setQualityChartData] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState(null);
+  // 🆕 REACT QUERY - Auto-cached & auto-refetch!
+  const {
+    data: dashboardData,
+    isLoading: isDashboardLoading,
+    error: dashboardError,
+    refetch: refetchDashboard,
+  } = useDashboardSummary(IPAL_ID);
 
-  // Locations (lat, lng)
+  const {
+    data: qualityChartDataRaw,
+    isLoading: isChartLoading,
+    refetch: refetchChart,
+  } = useDashboardReadings(IPAL_ID, {
+    period: selectedPeriod,
+    limit: selectedPeriod === "today" ? 24 : 50,
+  });
+
+  const {
+    data: historicalDataRaw,
+    isLoading: isHistoricalLoading,
+    refetch: refetchHistorical,
+  } = useSensorReadings(
+    {
+      ipal_id: IPAL_ID,
+      limit: 24,
+      order: "asc",
+    },
+    {
+      enabled: !!selectedPlace, // Hanya fetch jika ada selectedPlace
+    }
+  );
+
+  // Data State (derived from React Query)
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Process data
+  // Backend response: { success, count, period, date_range, summary, data: [...] }
+  const qualityChartData = qualityChartDataRaw?.data || [];
+  const historicalData = historicalDataRaw || [];
+  const isLoading = isDashboardLoading || isChartLoading;
+  const error = dashboardError; // Locations (lat, lng)
   const locations = {
     inlet: [-7.050665024868658, 110.44008189915155],
     outlet: [-7.050193776750058, 110.44035712980384],
@@ -116,82 +153,28 @@ const Dashboard = () => {
     { value: "week", label: "📅 Last 7 Days" },
   ];
 
-  // Fetch dashboard data on mount
-  useEffect(() => {
-    fetchDashboardData();
-    fetchQualityScoreData();
-  }, []);
-
-  // Fetch historical data when location selected
-  useEffect(() => {
-    if (selectedPlace) {
-      fetchHistoricalData();
-    }
-  }, [selectedPlace]);
-
-  // Fetch quality chart data when period changes
-  useEffect(() => {
-    fetchQualityScoreData();
-  }, [selectedPeriod]);
-
-  const fetchDashboardData = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      console.log("📊 Fetching dashboard data for IPAL", IPAL_ID);
-      const summary = await dashboardService.getSummary(IPAL_ID);
-      console.log("✅ Dashboard data received:", summary);
-      setDashboardData(summary);
-    } catch (err) {
-      console.error("❌ Error fetching dashboard:", err);
-      setError(err.message || "Failed to load dashboard");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchHistoricalData = async () => {
-    try {
-      console.log(`📈 Fetching historical data for ${selectedPlace}...`);
-      const readings = await sensorService.getReadings({
-        ipal_id: IPAL_ID,
-        limit: 24,
-        order: "asc",
-      });
-      console.log(`✅ Got ${readings.length} historical readings`);
-      setHistoricalData(readings);
-    } catch (err) {
-      console.error("❌ Error fetching historical data:", err);
-    }
-  };
-
-  const fetchQualityScoreData = async () => {
-    try {
-      console.log(`📊 Fetching quality score data (${selectedPeriod})...`);
-      const result = await dashboardService.getReadingsForChart(IPAL_ID, {
-        period: selectedPeriod,
-        limit: selectedPeriod === "today" ? 24 : 50,
-      });
-      console.log("✅ Quality chart data received:", result);
-
-      // Backend returns: { success, count, period, data: [...] }
-      const chartData = result.data || result || [];
-      console.log(`   Extracted ${chartData.length} data points for chart`);
-      setQualityChartData(chartData);
-    } catch (err) {
-      console.error("❌ Error fetching quality chart:", err);
-      setQualityChartData([]);
-    }
-  };
+  // 🆕 SIMPLIFIED - React Query handles fetching automatically!
+  // No more manual useEffect for fetching!
 
   const handleRefresh = async () => {
+    if (isRefreshing) return; // Prevent spam
+
     setIsRefreshing(true);
-    await fetchDashboardData();
-    await fetchQualityScoreData();
-    if (selectedPlace) {
-      await fetchHistoricalData();
+
+    try {
+      await Promise.all(
+        [
+          refetchDashboard(),
+          refetchChart(),
+          selectedPlace && refetchHistorical(),
+        ].filter(Boolean)
+      );
+
+      console.log("✅ All data refreshed!");
+    } finally {
+      // Minimum 1 second delay to prevent spam
+      setTimeout(() => setIsRefreshing(false), 1000);
     }
-    setIsRefreshing(false);
   };
 
   // Data processing
