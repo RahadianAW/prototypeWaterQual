@@ -193,8 +193,6 @@ const sensorService = {
 
       const response = await api.get(`/api/sensors/${sensorId}/latest`);
 
-      console.log("🔍 DEBUG latest reading response:", response);
-
       console.log("✅ Latest reading found");
 
       // api.get returns parsed JSON

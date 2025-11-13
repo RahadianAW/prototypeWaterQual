@@ -11,12 +11,14 @@ import {
 import { IoMdSettings } from "react-icons/io";
 import { FaUser } from "react-icons/fa";
 import authService from "../../services/authServices";
+import LogoutModal from "../ui/LogoutModal";
 
 const Navbar = ({ setSidebarOpen }) => {
   const [user, setUser] = useState(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notifMenuOpen, setNotifMenuOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const profileMenuRef = useRef(null);
   const notifMenuRef = useRef(null);
   const navigate = useNavigate();
@@ -50,7 +52,13 @@ const Navbar = ({ setSidebarOpen }) => {
 
   const handleLogout = async () => {
     await authService.logout();
+    setShowLogoutModal(false);
+    setProfileMenuOpen(false);
     navigate("/login"); // Redirect to login page
+  };
+
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
   };
 
   return (
@@ -207,7 +215,7 @@ const Navbar = ({ setSidebarOpen }) => {
 
                   <div className="border-t border-slate-200/80 py-2">
                     <button
-                      onClick={handleLogout}
+                      onClick={handleLogoutClick}
                       className="w-full flex items-center space-x-3 px-4 py-2.5 text-red-600 hover:bg-red-50 transition-all duration-200 group"
                     >
                       <MdLogout className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -237,6 +245,13 @@ const Navbar = ({ setSidebarOpen }) => {
           </div>
         )}
       </div>
+
+      {/* Logout Confirmation Modal */}
+      <LogoutModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={handleLogout}
+      />
 
       <style jsx>{`
         @keyframes fadeIn {

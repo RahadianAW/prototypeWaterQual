@@ -54,12 +54,12 @@ const authService = {
    */
   logout: () => {
     console.log("🚪 Logging out...");
-    
+
     // Clear all authentication data
     localStorage.removeItem("token");
     localStorage.removeItem("user");
     localStorage.removeItem("fcm_token"); // Also clear FCM token
-    
+
     console.log("✅ Token, user, and FCM token cleared from localStorage");
   },
 
@@ -101,28 +101,56 @@ const authService = {
    * @returns {Promise<void>}
    */
   sendPasswordResetEmail: async (email) => {
-    try {
-      console.log("📧 Sending password reset email to:", email);
+    console.log("📧 Sending password reset email to:", email);
 
-      // Optional: Configure action code settings
+    // STEP 1: Check if email exists in backend
+    try {
+      console.log("🔍 Checking if email exists in database...");
+      const checkResponse = await api.post("/auth/check-email", { email });
+
+      console.log("📋 Check email response:", checkResponse);
+
+      // If exists is explicitly false, STOP HERE!
+      if (checkResponse.success && checkResponse.exists === false) {
+        console.log("❌ Email not found in database - STOPPING");
+        throw new Error("No account found with this email address.");
+      }
+
+      // If exists is not true, something is wrong
+      if (!checkResponse.exists) {
+        console.log("⚠️  Unexpected response from API");
+        throw new Error("No account found with this email address.");
+      }
+
+      console.log(
+        "✅ Email exists in Firebase Auth, proceeding to send reset link"
+      );
+    } catch (error) {
+      console.error("❌ API check error:", error);
+      // Re-throw the error - DO NOT continue to Firebase
+      throw error;
+    }
+
+    // STEP 2: Send email via Firebase (only if we reach here)
+    try {
       const actionCodeSettings = {
-        url: window.location.origin, // Redirect back to home after reset
+        url: window.location.origin,
         handleCodeInApp: false,
       };
 
       await sendPasswordResetEmail(auth, email, actionCodeSettings);
       console.log("✅ Password reset email sent successfully!");
       return { success: true };
-    } catch (error) {
-      console.error("❌ Failed to send password reset email:", error);
+    } catch (firebaseError) {
+      console.error("❌ Firebase error:", firebaseError);
 
-      // User-friendly error messages
       let errorMessage = "Failed to send reset email. Please try again.";
-      if (error.code === "auth/user-not-found") {
+
+      if (firebaseError.code === "auth/user-not-found") {
         errorMessage = "No account found with this email address.";
-      } else if (error.code === "auth/invalid-email") {
-        errorMessage = "Invalid email address.";
-      } else if (error.code === "auth/too-many-requests") {
+      } else if (firebaseError.code === "auth/invalid-email") {
+        errorMessage = "Invalid email address format.";
+      } else if (firebaseError.code === "auth/too-many-requests") {
         errorMessage = "Too many requests. Please try again later.";
       }
 

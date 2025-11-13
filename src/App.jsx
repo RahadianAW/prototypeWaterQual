@@ -3,8 +3,6 @@ import { useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
-import SignUp from "./pages/SignUp";
-import VerifyEmail from "./pages/VerifyEmail";
 import SensorDetail from "./pages/SensorDetail";
 import Alerts from "./pages/Alerts";
 import Reports from "./pages/Reports";

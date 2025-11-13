@@ -8,28 +8,25 @@ import {
   Clock,
 } from "lucide-react";
 import { format } from "date-fns";
-import { useAlertPolling } from "../hooks/useAlertPolling";
 import { acknowledgeAlert, resolveAlert } from "../services/alertServices";
 import AlertGroupList from "../components/alerts/AlertGroupList";
+import { useAlertsData } from "../hooks/useQueryHooks";
 
 const Alerts = () => {
-  // Polling hook
+  // 🆕 REACT QUERY - Auto-polling setiap 30 detik!
   const {
     alerts,
     stats,
-    loading,
+    isLoading: loading,
     error,
-    lastUpdate,
-    isPolling,
-    refresh,
     activeCount,
     totalCount,
-  } = useAlertPolling({
-    ipal_id: 1,
-    status: null,
-    interval: 6000000, // ← GANTI: 5 MENIT (dari 15 detik)
-    autoStart: true, // Tetap auto, tapi lambat
-  });
+    refetch: refresh,
+  } = useAlertsData(1, true); // enablePolling = true
+
+  // Last update time (untuk display)
+  const [lastUpdate] = useState(new Date());
+  const isPolling = true; // Always polling with React Query
   // Local state
   const [filter, setFilter] = useState("all");
   const [parameterFilter, setParameterFilter] = useState("all");

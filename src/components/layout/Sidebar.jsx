@@ -1,4 +1,5 @@
 // src/components/layout/Sidebar.jsx
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   MdDashboard,
@@ -10,15 +11,22 @@ import {
   MdWaterDrop,
 } from "react-icons/md";
 import { useAuth } from "../../context/AuthContext";
+import LogoutModal from "../ui/LogoutModal";
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const handleLogout = () => {
     logout();
+    setShowLogoutModal(false);
     setSidebarOpen(false);
     navigate("/login"); // Redirect to login page
+  };
+
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
   };
 
   return (
@@ -128,7 +136,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
             </div>
           )}
           <button
-            onClick={handleLogout}
+            onClick={handleLogoutClick}
             className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-red-200 hover:text-white hover:bg-red-500/15 transition-all duration-200 group border border-transparent hover:border-red-400/20 active:scale-[0.98]"
           >
             <MdLogout className="w-5 h-5 transition-transform group-hover:translate-x-0.5" />
@@ -136,6 +144,13 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           </button>
         </div>
       </aside>
+
+      {/* Logout Confirmation Modal */}
+      <LogoutModal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        onConfirm={handleLogout}
+      />
 
       <style jsx>{`
         .custom-scrollbar::-webkit-scrollbar {
