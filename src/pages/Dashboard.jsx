@@ -35,6 +35,9 @@ import Select from "../components/ui/Select";
 import Button from "../components/ui/Button";
 import DataCard from "../components/ui/DataCard";
 
+// Utils
+import { getParameterStatus } from "../utils/waterQualityStatus";
+
 // Services
 import dashboardService from "../services/dashboardService";
 import sensorService from "../services/sensorServices";
@@ -265,7 +268,7 @@ const Dashboard = () => {
   // Loading State
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyan-50 via-blue-50 to-sky-100">
         <div className="text-center">
           <div className="relative w-24 h-24 mx-auto mb-8">
             <div className="absolute inset-0 border-4 border-blue-200 rounded-full"></div>
@@ -286,7 +289,7 @@ const Dashboard = () => {
   // Error State
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-orange-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50/60 via-orange-50/50 to-cyan-50/40 p-4">
         <div className="bg-white rounded-2xl shadow-xl border border-red-200 p-8 max-w-md w-full">
           <div className="text-center">
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -309,7 +312,7 @@ const Dashboard = () => {
   // Empty State
   if (!dashboardData || !latestReading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-blue-50 to-sky-100 p-4">
         <div className="max-w-4xl mx-auto mt-20">
           <div className="bg-white rounded-2xl shadow-xl border p-12 text-center">
             <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -340,15 +343,15 @@ const Dashboard = () => {
 
   // Main Dashboard
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50/50 via-blue-50/80 to-sky-100/60">
       <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
         {/* Header */}
-        <div className="relative bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-indigo-600/5"></div>
+        <div className="relative bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-cyan-200/30 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/5 via-blue-400/5 to-sky-400/5"></div>
           <div className="relative p-6 sm:p-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-start space-x-4">
-                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-3 rounded-xl shadow-lg">
+                <div className="bg-gradient-to-br from-cyan-400 to-blue-500 p-3 rounded-xl shadow-lg">
                   <Waves className="w-8 h-8 text-white" />
                 </div>
                 <div>
@@ -403,8 +406,8 @@ const Dashboard = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Violations */}
             {violations.length > 0 && (
-              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-red-200 overflow-hidden">
-                <div className="p-5 border-b bg-gradient-to-r from-red-50/50 to-orange-50/50">
+              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-red-200/60 overflow-hidden">
+                <div className="p-5 border-b bg-gradient-to-r from-red-50/60 via-orange-50/40 to-cyan-50/30">
                   <div className="flex items-center space-x-3">
                     <div className="bg-gradient-to-br from-red-500 to-orange-600 p-2.5 rounded-xl">
                       <AlertTriangle className="w-5 h-5 text-white" />
@@ -466,10 +469,10 @@ const Dashboard = () => {
 
             {/* Recommendations */}
             {recommendations.length > 0 && (
-              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-blue-200 overflow-hidden">
-                <div className="p-5 border-b bg-gradient-to-r from-blue-50/50 to-indigo-50/50">
+              <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-cyan-200/60 overflow-hidden">
+                <div className="p-5 border-b bg-gradient-to-r from-cyan-50/60 via-blue-50/50 to-sky-50/60">
                   <div className="flex items-center space-x-3">
-                    <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl">
+                    <div className="bg-gradient-to-br from-cyan-400 to-blue-500 p-2.5 rounded-xl">
                       <Lightbulb className="w-5 h-5 text-white" />
                     </div>
                     <div>
@@ -527,11 +530,11 @@ const Dashboard = () => {
         )}
 
         {/* Quality Score Trend Chart */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 overflow-hidden hover:shadow-2xl transition-shadow duration-300">
-          <div className="p-5 sm:p-6 border-b bg-gradient-to-r from-green-50/50 to-emerald-50/50">
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-cyan-200/30 overflow-hidden hover:shadow-2xl transition-shadow duration-300">
+          <div className="p-5 sm:p-6 border-b bg-gradient-to-r from-cyan-50/60 via-blue-50/50 to-teal-50/60">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-2.5 rounded-xl">
+                <div className="bg-gradient-to-br from-cyan-400 to-blue-500 p-2.5 rounded-xl">
                   <BarChart3 className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -582,10 +585,10 @@ const Dashboard = () => {
         </div>
 
         {/* Location Selector */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 p-6 hover:shadow-2xl transition-shadow duration-300">
+        <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-cyan-200/40 p-6 hover:shadow-2xl transition-shadow duration-300">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <div className="flex items-center space-x-3">
-              <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl">
+              <div className="bg-gradient-to-br from-cyan-400 to-blue-500 p-2.5 rounded-xl">
                 <MapPin className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -607,7 +610,7 @@ const Dashboard = () => {
           </div>
 
           {!selectedPlace && (
-            <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200/50">
+            <div className="mt-4 p-4 bg-gradient-to-r from-cyan-50/80 via-blue-50/60 to-sky-50/80 rounded-xl border border-cyan-200/50">
               <div className="flex items-start space-x-3">
                 <TrendingUp className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-blue-900">
@@ -620,7 +623,7 @@ const Dashboard = () => {
           )}
 
           {selectedPlace && (
-            <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200/50">
+            <div className="mt-4 p-4 bg-gradient-to-r from-teal-50/70 via-cyan-50/60 to-emerald-50/70 rounded-xl border border-teal-200/50">
               <div className="flex items-start space-x-3">
                 <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-green-900">
@@ -637,31 +640,39 @@ const Dashboard = () => {
 
         {/* Parameter Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {parameters.map((param, idx) => (
-            <div
-              key={idx}
-              className="transform hover:scale-105 transition-transform duration-300"
-              style={{ animationDelay: `${idx * 100}ms` }}
-            >
-              <DataCard
-                title={param.name}
-                value={currentData?.[param.key]}
-                unit={param.unit}
-                icon={param.icon}
-                status={selectedPlace ? fuzzyStatus : null}
-                isActive={!!selectedPlace}
-              />
-            </div>
-          ))}
+          {parameters.map((param, idx) => {
+            const paramValue = currentData?.[param.key];
+            const paramStatus =
+              selectedPlace && paramValue !== null && paramValue !== undefined
+                ? getParameterStatus(param.key, paramValue, selectedPlace)
+                : null;
+
+            return (
+              <div
+                key={idx}
+                className="transform hover:scale-105 transition-transform duration-300"
+                style={{ animationDelay: `${idx * 100}ms` }}
+              >
+                <DataCard
+                  title={param.name}
+                  value={paramValue}
+                  unit={param.unit}
+                  icon={param.icon}
+                  status={paramStatus}
+                  isActive={!!selectedPlace}
+                />
+              </div>
+            );
+          })}
         </div>
 
         {/* 🔥 IMPROVED LAYOUT: Map Smaller, Chart Larger */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Map Panel - 1/3 width on desktop */}
-          <div className="lg:col-span-1 bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 overflow-hidden hover:shadow-2xl transition-shadow duration-300 h-[400px]">
-            <div className="p-4 border-b bg-gradient-to-r from-blue-50/50 to-indigo-50/50">
+          <div className="lg:col-span-1 bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-cyan-200/40 overflow-hidden hover:shadow-2xl transition-shadow duration-300 h-[400px]">
+            <div className="p-4 border-b bg-gradient-to-r from-cyan-50/60 via-blue-50/50 to-sky-50/60">
               <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 rounded-lg">
+                <div className="bg-gradient-to-br from-cyan-400 to-blue-500 p-2 rounded-lg">
                   <MapPin className="w-4 h-4 text-white" />
                 </div>
                 <div>
@@ -708,8 +719,8 @@ const Dashboard = () => {
           </div>
 
           {/* Chart Panel - 2/3 width on desktop */}
-          <div className="lg:col-span-2 bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 overflow-hidden hover:shadow-2xl transition-shadow duration-300 h-[400px] flex flex-col">
-            <div className="p-4 border-b bg-gradient-to-r from-purple-50/50 to-pink-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="lg:col-span-2 bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl border border-cyan-200/40 overflow-hidden hover:shadow-2xl transition-shadow duration-300 h-[400px] flex flex-col">
+            <div className="p-4 border-b bg-gradient-to-r from-purple-50/50 via-pink-50/40 to-cyan-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex items-center space-x-3">
                 <div className="bg-gradient-to-br from-purple-500 to-pink-600 p-2 rounded-lg">
                   <Activity className="w-4 h-4 text-white" />

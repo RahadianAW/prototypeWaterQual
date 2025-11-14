@@ -131,6 +131,25 @@ export const useAlertStats = (ipalId = 1) => {
   });
 };
 
+/**
+ * Hook untuk active alerts count (untuk badge)
+ * Auto-cached 30 detik dengan auto-refresh
+ */
+export const useActiveAlerts = (ipalId = 1) => {
+  return useQuery({
+    queryKey: ["alerts", "active", ipalId],
+    queryFn: async () => {
+      const response = await getAlerts({ ipal_id: ipalId, status: "active" });
+      return {
+        count: response.count || 0,
+        alerts: response.data || [],
+      };
+    },
+    staleTime: 30000, // 30 detik
+    refetchInterval: 60000, // Auto-refresh setiap 60 detik
+  });
+};
+
 // ========================================
 // COMBINED HOOKS (untuk convenience)
 // ========================================
@@ -187,6 +206,7 @@ export default {
   useSensorHistory,
   useAlerts,
   useAlertStats,
+  useActiveAlerts,
   useDashboardData,
   useAlertsData,
 };

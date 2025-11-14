@@ -12,11 +12,16 @@ import {
 } from "react-icons/md";
 import { useAuth } from "../../context/AuthContext";
 import LogoutModal from "../ui/LogoutModal";
+import { useActiveAlerts } from "../../hooks/useQueryHooks";
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Fetch active alerts count
+  const { data: alertsData } = useActiveAlerts(1); // IPAL_ID = 1
+  const activeAlertsCount = alertsData?.count || 0;
 
   const handleLogout = () => {
     logout();
@@ -42,19 +47,24 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 w-72 bg-gradient-to-b from-slate-900 via-blue-950 to-slate-900 text-white transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-auto md:z-auto shadow-2xl border-r border-white/5 flex flex-col ${
+        className={`fixed inset-y-0 left-0 z-30 w-72 bg-gradient-to-b from-slate-900 via-cyan-950 to-blue-950 text-white transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-auto md:z-auto shadow-2xl flex flex-col ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Sidebar header */}
-        <div className="relative px-5 py-5 border-b border-white/10 bg-gradient-to-r from-blue-600/10 via-cyan-600/10 to-blue-600/10 backdrop-blur-sm flex-shrink-0">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-500/5 via-transparent to-transparent"></div>
+        {/* Border kanan yang seamless dengan navbar */}
+        <div className="hidden md:block absolute top-0 right-0 bottom-0 w-px bg-gradient-to-b from-cyan-500/30 via-cyan-400/20 to-blue-500/20"></div>
+        {/* Sidebar header - height yang sama dengan navbar */}
+        <div className="relative px-5 py-3.5 border-b border-cyan-500/20 bg-gradient-to-r from-cyan-600/15 via-blue-600/15 to-cyan-600/15 backdrop-blur-sm flex-shrink-0">
+          {/* Glow effect */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cyan-500/10 via-transparent to-transparent"></div>
+          {/* Border bawah yang seamless */}
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-cyan-500/30 via-cyan-400/20 to-transparent"></div>
 
           <div className="relative flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="relative flex-shrink-0">
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-xl blur-md opacity-40"></div>
-                <div className="relative p-2.5 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shadow-xl ring-1 ring-white/20">
+                <div className="absolute inset-0 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-xl blur-md opacity-50"></div>
+                <div className="relative p-2 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-xl shadow-xl ring-2 ring-cyan-400/30">
                   <MdWaterDrop className="w-6 h-6 text-white drop-shadow-lg" />
                 </div>
               </div>
@@ -82,7 +92,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
           {/* Main Menu */}
           <div className="mb-6">
             <h2 className="px-3 mb-3 text-[10px] font-bold text-cyan-300/70 uppercase tracking-widest">
-              Menu Utama
+              Side Bar
             </h2>
             <div className="space-y-1">
               <NavItem
@@ -101,7 +111,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                 to="/alerts"
                 icon={<MdNotifications />}
                 label="Alerts"
-                badge="3"
+                badge={activeAlertsCount > 0 ? activeAlertsCount : null}
                 onClick={() => setSidebarOpen(false)}
               />
               <NavItem
@@ -152,7 +162,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
         onConfirm={handleLogout}
       />
 
-      <style jsx>{`
+      <style>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 5px;
         }

@@ -62,14 +62,17 @@ const Navbar = ({ setSidebarOpen }) => {
   };
 
   return (
-    <header className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-slate-200/80 shadow-sm shadow-slate-200/50">
+    <header className="relative z-10 bg-gradient-to-r from-white/95 via-cyan-50/90 to-blue-50/95 backdrop-blur-xl shadow-lg shadow-cyan-500/5">
+      {/* Border bottom yang seamless */}
+      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-cyan-500/20 via-cyan-200/60 to-blue-200/60"></div>
+
       <div className="px-4 sm:px-6 lg:px-8 py-3.5">
         <div className="flex items-center justify-between">
           {/* Left Section */}
           <div className="flex items-center space-x-4">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2.5 rounded-xl text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-all duration-200 lg:hidden focus:outline-none focus:ring-2 focus:ring-blue-500/30 active:scale-95"
+              className="p-2.5 rounded-xl text-cyan-700 hover:text-cyan-900 hover:bg-cyan-100 transition-all duration-200 lg:hidden focus:outline-none focus:ring-2 focus:ring-cyan-500/30 active:scale-95"
               aria-label="Toggle sidebar"
             >
               <MdMenu className="w-6 h-6" />
@@ -77,11 +80,11 @@ const Navbar = ({ setSidebarOpen }) => {
 
             {/* Page Title - Desktop */}
             <div className="hidden md:block">
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">
+              <h2 className="text-xl font-bold bg-gradient-to-r from-cyan-700 to-blue-700 bg-clip-text text-transparent tracking-tight">
                 Water Quality Dashboard
               </h2>
-              <p className="text-xs text-slate-600 font-medium mt-0.5">
-                Real-time monitoring system
+              <p className="text-xs text-cyan-600 font-semibold mt-0.5">
+                💧 Real-time monitoring system
               </p>
             </div>
 
