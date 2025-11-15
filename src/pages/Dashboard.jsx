@@ -26,6 +26,8 @@ import {
   ShieldAlert,
   Lightbulb,
 } from "lucide-react";
+import { LoadingScreen } from "../components/ui";
+import { useIPAL } from "../context/IPALContext";
 
 // Components
 import LineChart from "../components/charts/LineChart";
@@ -70,7 +72,8 @@ const MapUpdater = ({ location }) => {
 };
 
 const Dashboard = () => {
-  const IPAL_ID = 1;
+  // ⭐ USE IPAL CONTEXT - Dynamic IPAL ID
+  const { currentIpalId, currentIpal, isLoading: isIpalLoading } = useIPAL();
 
   // UI State
   const [selectedPlace, setSelectedPlace] = useState("");
@@ -83,15 +86,18 @@ const Dashboard = () => {
     isLoading: isDashboardLoading,
     error: dashboardError,
     refetch: refetchDashboard,
-  } = useDashboardSummary(IPAL_ID);
+  } = useDashboardSummary(currentIpalId, {
+    enabled: !!currentIpalId, // Only fetch when IPAL ID is available
+  });
 
   const {
     data: qualityChartDataRaw,
     isLoading: isChartLoading,
     refetch: refetchChart,
-  } = useDashboardReadings(IPAL_ID, {
+  } = useDashboardReadings(currentIpalId, {
     period: selectedPeriod,
     limit: selectedPeriod === "today" ? 24 : 50,
+    enabled: !!currentIpalId,
   });
 
   const {
@@ -100,17 +106,22 @@ const Dashboard = () => {
     refetch: refetchHistorical,
   } = useSensorReadings(
     {
-      ipal_id: IPAL_ID,
+      ipal_id: currentIpalId,
       limit: 24,
       order: "asc",
     },
     {
-      enabled: !!selectedPlace, // Hanya fetch jika ada selectedPlace
+      enabled: !!selectedPlace && !!currentIpalId, // Hanya fetch jika ada selectedPlace dan IPAL ID
     }
   );
 
   // Data State (derived from React Query)
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Wait for IPAL to load
+  if (isIpalLoading || !currentIpalId) {
+    return <LoadingScreen message="Loading IPAL Configuration" icon={MapPin} />;
+  }
 
   // Process data
   // Backend response: { success, count, period, date_range, summary, data: [...] }
@@ -267,23 +278,7 @@ const Dashboard = () => {
 
   // Loading State
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-cyan-50 via-blue-50 to-sky-100">
-        <div className="text-center">
-          <div className="relative w-24 h-24 mx-auto mb-8">
-            <div className="absolute inset-0 border-4 border-blue-200 rounded-full"></div>
-            <div className="absolute inset-0 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <Waves className="absolute inset-0 m-auto w-10 h-10 text-blue-600 animate-pulse" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Loading Dashboard
-          </h2>
-          <p className="text-sm text-gray-600">
-            Fetching real-time water quality data...
-          </p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Loading Dashboard" icon={Waves} />;
   }
 
   // Error State
@@ -321,10 +316,45 @@ const Dashboard = () => {
             <h2 className="text-3xl font-bold text-gray-900 mb-3">
               No Data Available
             </h2>
-            <p className="text-gray-600 mb-8 max-w-md mx-auto text-lg">
-              Belum ada data sensor dari IPAL. Data akan muncul setelah ESP32
-              mengirim pembacaan pertama.
+            <p className="text-gray-600 mb-2 max-w-md mx-auto text-lg">
+              Belum ada data sensor dari{" "}
+              <strong>{currentIpal?.ipal_location || "IPAL ini"}</strong>.
             </p>
+            <p className="text-gray-500 mb-8 max-w-md mx-auto text-sm">
+              Data akan muncul setelah ESP32 mengirim pembacaan pertama atau
+              setelah sensor mulai aktif.
+            </p>
+
+            {/* IPAL Info */}
+            {currentIpal && (
+              <div className="bg-gradient-to-r from-cyan-50 to-blue-50 rounded-xl p-4 mb-6 max-w-md mx-auto">
+                <div className="flex items-center justify-center space-x-2 text-sm text-gray-700">
+                  <MapPin className="w-4 h-4 text-cyan-600" />
+                  <span>
+                    <strong>IPAL ID:</strong> {currentIpal.ipal_id}
+                  </span>
+                  <span className="text-gray-400">•</span>
+                  <span>
+                    <strong>Status:</strong>{" "}
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs ${
+                        currentIpal.status === "active"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {currentIpal.status || "unknown"}
+                    </span>
+                  </span>
+                </div>
+                {currentIpal.sensor_count !== undefined && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    {currentIpal.sensor_count} sensor(s) terdaftar
+                  </p>
+                )}
+              </div>
+            )}
+
             <Button
               onClick={handleRefresh}
               disabled={isRefreshing}
@@ -359,7 +389,7 @@ const Dashboard = () => {
                     Water Quality Monitoring
                   </h1>
                   <p className="text-gray-600 mt-1 text-sm sm:text-base">
-                    IPAL Teknik Lingkungan Undip
+                    {currentIpal?.ipal_location || "Loading..."}
                   </p>
                   {latestReading?.timestamp && (
                     <div className="flex items-center mt-2 text-xs text-gray-500">
@@ -704,7 +734,7 @@ const Dashboard = () => {
                           📍 {selectedPlace}
                         </p>
                         <p className="text-xs text-gray-600 mb-2">
-                          IPAL Teknik Lingkungan Undip
+                          {currentIpal?.ipal_location || ""}
                         </p>
                         <p className="text-xs text-gray-500 font-mono">
                           {locations[selectedPlace][0].toFixed(6)},{" "}

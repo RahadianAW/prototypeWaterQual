@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { acknowledgeAlert, resolveAlert } from "../services/alertServices";
 import AlertGroupList from "../components/alerts/AlertGroupList";
 import { useAlertsData } from "../hooks/useQueryHooks";
+import { LoadingScreen } from "../components/ui";
 
 const Alerts = () => {
   // 🆕 REACT QUERY - Auto-polling setiap 30 detik!
@@ -31,6 +32,11 @@ const Alerts = () => {
   const [filter, setFilter] = useState("all");
   const [parameterFilter, setParameterFilter] = useState("all");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  // Show loading screen on initial load
+  if (loading && alerts.length === 0) {
+    return <LoadingScreen message="Loading Alerts" icon={AlertTriangle} />;
+  }
 
   // Filter alerts locally
   const filteredAlerts = alerts.filter((alert) => {

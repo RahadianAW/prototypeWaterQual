@@ -13,6 +13,7 @@ import {
   MdWarning,
 } from "react-icons/md";
 import reportService from "../services/reportService";
+import { InlineLoader } from "../components/ui";
 
 const Reports = () => {
   // State
@@ -501,9 +502,8 @@ const Reports = () => {
 
       {/* Loading State */}
       {loading && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading preview...</p>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
+          <InlineLoader message="Loading preview..." size="lg" />
         </div>
       )}
 

@@ -13,28 +13,37 @@ import {
   MdTrendingDown,
 } from "react-icons/md";
 import sensorService from "../services/sensorServices";
+import { LoadingScreen } from "../components/ui";
+import { useIPAL } from "../context/IPALContext";
 
 const Sensors = () => {
+  // ⭐ USE IPAL CONTEXT - Dynamic IPAL ID
+  const { currentIpalId, currentIpal } = useIPAL();
+
   const [sensors, setSensors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState(new Date());
 
   useEffect(() => {
-    fetchSensors();
+    if (currentIpalId) {
+      fetchSensors();
 
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(() => {
-      handleRefresh(true); // silent refresh
-    }, 30000);
+      // Auto-refresh every 30 seconds
+      const interval = setInterval(() => {
+        handleRefresh(true); // silent refresh
+      }, 30000);
 
-    return () => clearInterval(interval);
-  }, []);
+      return () => clearInterval(interval);
+    }
+  }, [currentIpalId]);
 
   const fetchSensors = async () => {
     try {
       setLoading(true);
-      const data = await sensorService.getAllSensors({ ipal_id: 1 });
+      const data = await sensorService.getAllSensors({
+        ipal_id: currentIpalId,
+      });
 
       // Fetch latest reading + mini history untuk setiap sensor
       const sensorsWithData = await Promise.all(
@@ -279,11 +288,7 @@ const Sensors = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
-    );
+    return <LoadingScreen message="Loading Sensors" icon={MdOutlineSensors} />;
   }
 
   return (

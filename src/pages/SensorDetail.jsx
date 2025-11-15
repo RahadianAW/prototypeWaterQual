@@ -17,6 +17,7 @@ import {
 } from "react-icons/md";
 import sensorService from "../services/sensorServices";
 import LineChart from "../components/charts/LineChart";
+import { LoadingScreen } from "../components/ui";
 
 const SensorDetail = () => {
   const { id } = useParams();
@@ -240,9 +241,7 @@ const SensorDetail = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-      </div>
+      <LoadingScreen message="Loading Sensor Details" icon={MdOutlineHistory} />
     );
   }
 

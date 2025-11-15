@@ -19,11 +19,12 @@ import { getAlerts, getAlertStats } from "../services/alertServices";
  * Hook untuk dashboard summary
  * Auto-cached 30 detik (sesuai backend)
  */
-export const useDashboardSummary = (ipalId = 1) => {
+export const useDashboardSummary = (ipalId, options = {}) => {
   return useQuery({
     queryKey: ["dashboard", "summary", ipalId],
     queryFn: () => dashboardService.getSummary(ipalId),
     staleTime: 30000, // 30 detik
+    enabled: !!ipalId && options.enabled !== false, // Only fetch if ipalId exists
   });
 };
 
@@ -31,14 +32,15 @@ export const useDashboardSummary = (ipalId = 1) => {
  * Hook untuk chart readings
  * Auto-cached 60 detik (sesuai backend)
  */
-export const useDashboardReadings = (ipalId = 1, options = {}) => {
-  const { period = "week", limit = 100 } = options;
+export const useDashboardReadings = (ipalId, options = {}) => {
+  const { period = "week", limit = 100, enabled = true } = options;
 
   return useQuery({
     queryKey: ["dashboard", "readings", ipalId, period, limit],
     queryFn: () =>
       dashboardService.getReadingsForChart(ipalId, { period, limit }),
     staleTime: 60000, // 60 detik
+    enabled: !!ipalId && enabled, // Only fetch if ipalId exists
   });
 };
 
@@ -50,13 +52,15 @@ export const useDashboardReadings = (ipalId = 1, options = {}) => {
  * Hook untuk sensor readings
  * Auto-cached 45 detik (sesuai backend)
  */
-export const useSensorReadings = (filters = {}) => {
-  const { ipal_id = 1, limit = 50, order = "desc" } = filters;
+export const useSensorReadings = (filters = {}, options = {}) => {
+  const { ipal_id, limit = 50, order = "desc" } = filters;
+  const { enabled = true } = options;
 
   return useQuery({
     queryKey: ["sensors", "readings", ipal_id, limit, order],
     queryFn: () => sensorService.getReadings(filters),
     staleTime: 45000, // 45 detik
+    enabled: !!ipal_id && enabled, // Only fetch if ipal_id exists
   });
 };
 

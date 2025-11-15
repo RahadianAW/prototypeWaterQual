@@ -65,7 +65,24 @@ const api = {
    * GET request
    */
   get: (endpoint, options = {}) => {
-    return apiFetch(endpoint, {
+    // Build URL with query params if provided
+    let url = endpoint;
+    if (options.params) {
+      const searchParams = new URLSearchParams();
+      Object.keys(options.params).forEach((key) => {
+        if (options.params[key] !== undefined && options.params[key] !== null) {
+          searchParams.append(key, options.params[key]);
+        }
+      });
+      const queryString = searchParams.toString();
+      if (queryString) {
+        url = `${endpoint}?${queryString}`;
+      }
+      // Remove params from options to avoid passing it to fetch
+      delete options.params;
+    }
+
+    return apiFetch(url, {
       method: "GET",
       ...options,
     });

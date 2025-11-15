@@ -9,6 +9,7 @@
 import { useMemo, useState } from "react";
 import AlertGroupCard from "./AlertGroupCard";
 import { RefreshCw } from "lucide-react";
+import { InlineLoader } from "../ui";
 
 const AlertGroupList = ({
   alerts,
@@ -78,9 +79,8 @@ const AlertGroupList = ({
   // Loading state
   if (loading && alerts.length === 0) {
     return (
-      <div className="bg-white shadow-md rounded-2xl p-8 text-center">
-        <RefreshCw className="h-8 w-8 animate-spin mx-auto text-gray-400 mb-2" />
-        <p className="text-gray-500">Loading alert groups...</p>
+      <div className="bg-white shadow-md rounded-2xl p-8">
+        <InlineLoader message="Loading alert groups..." size="lg" />
       </div>
     );
   }

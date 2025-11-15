@@ -9,6 +9,7 @@ import Reports from "./pages/Reports";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Sensors from "./pages/Sensors";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { IPALProvider } from "./context/IPALContext";
 import {
   requestNotificationPermission,
   registerFCMToken,
@@ -70,26 +71,28 @@ function App() {
   }, []); // Run once on mount
 
   return (
-    <Routes>
-      {/* Auth pages */}
-      <Route path="/" element={<Login />} />
-      <Route path="/login" element={<Login />} />
+    <IPALProvider>
+      <Routes>
+        {/* Auth pages */}
+        <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Login />} />
 
-      {/* Protected routes */}
-      <Route
-        element={
-          <ProtectedRoute>
-            <DashboardLayout />
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/sensors" element={<Sensors />} />
-        <Route path="/sensors/:id" element={<SensorDetail />} />
-        <Route path="/alerts" element={<Alerts />} />
-        <Route path="/reports" element={<Reports />} />
-      </Route>
-    </Routes>
+        {/* Protected routes */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/sensors" element={<Sensors />} />
+          <Route path="/sensors/:id" element={<SensorDetail />} />
+          <Route path="/alerts" element={<Alerts />} />
+          <Route path="/reports" element={<Reports />} />
+        </Route>
+      </Routes>
+    </IPALProvider>
   );
 }
 

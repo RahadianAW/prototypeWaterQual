@@ -12,6 +12,7 @@ import { IoMdSettings } from "react-icons/io";
 import { FaUser } from "react-icons/fa";
 import authService from "../../services/authServices";
 import LogoutModal from "../ui/LogoutModal";
+import IPALSelector from "../ipal/IPALSelector";
 
 const Navbar = ({ setSidebarOpen }) => {
   const [user, setUser] = useState(null);
@@ -103,7 +104,10 @@ const Navbar = ({ setSidebarOpen }) => {
           </div>
 
           {/* Right Section */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-3">
+            {/* IPAL Selector */}
+            <IPALSelector />
+
             {/* Notifications */}
             <div className="relative" ref={notifMenuRef}>
               <button

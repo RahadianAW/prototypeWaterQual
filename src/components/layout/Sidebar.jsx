@@ -13,14 +13,18 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import LogoutModal from "../ui/LogoutModal";
 import { useActiveAlerts } from "../../hooks/useQueryHooks";
+import { useIPAL } from "../../context/IPALContext";
 
 const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
+  // ⭐ USE IPAL CONTEXT - Dynamic IPAL ID
+  const { currentIpalId } = useIPAL();
+
   // Fetch active alerts count
-  const { data: alertsData } = useActiveAlerts(1); // IPAL_ID = 1
+  const { data: alertsData } = useActiveAlerts(currentIpalId);
   const activeAlertsCount = alertsData?.count || 0;
 
   const handleLogout = () => {
