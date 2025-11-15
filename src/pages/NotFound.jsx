@@ -11,7 +11,7 @@ const NotFound = () => {
         <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 text-center relative overflow-hidden">
           {/* Background Decoration */}
           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary-500 via-secondary-500 to-primary-500"></div>
-          
+
           {/* Water Drop Icon with Animation */}
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center justify-center">
@@ -41,7 +41,8 @@ const NotFound = () => {
               Oops! This Stream Has Dried Up
             </h2>
             <p className="text-gray-600 text-base md:text-lg max-w-md mx-auto leading-relaxed">
-              The page you're looking for doesn't exist or has been moved to another location. Let's get you back on track!
+              The page you're looking for doesn't exist or has been moved to
+              another location. Let's get you back on track!
             </p>
           </div>
 
@@ -70,7 +71,9 @@ const NotFound = () => {
                 <div className="w-16 h-16 mx-auto mb-2 bg-primary-100 rounded-full flex items-center justify-center">
                   <Droplets className="w-8 h-8 text-primary-600" />
                 </div>
-                <p className="text-xs text-gray-500 font-medium">Water Quality</p>
+                <p className="text-xs text-gray-500 font-medium">
+                  Water Quality
+                </p>
               </div>
               <div className="text-center opacity-50">
                 <div className="w-16 h-16 mx-auto mb-2 bg-gray-100 rounded-full flex items-center justify-center">
