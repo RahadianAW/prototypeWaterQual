@@ -6,6 +6,7 @@ import Login from "./pages/Login";
 import SensorDetail from "./pages/SensorDetail";
 import Alerts from "./pages/Alerts";
 import Reports from "./pages/Reports";
+import NotFound from "./pages/NotFound";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import Sensors from "./pages/Sensors";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -91,6 +92,9 @@ function App() {
           <Route path="/alerts" element={<Alerts />} />
           <Route path="/reports" element={<Reports />} />
         </Route>
+
+        {/* 404 Not Found - catch all */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </IPALProvider>
   );
