@@ -28,19 +28,8 @@ import {
 import { LoadingScreen } from "../components/ui";
 import { useIPAL } from "../context/IPALContext";
 
-// ⚡ Lazy load heavy components
-const MapContainer = lazy(() =>
-  import("react-leaflet").then((module) => ({ default: module.MapContainer }))
-);
-const TileLayer = lazy(() =>
-  import("react-leaflet").then((module) => ({ default: module.TileLayer }))
-);
-const Marker = lazy(() =>
-  import("react-leaflet").then((module) => ({ default: module.Marker }))
-);
-const Popup = lazy(() =>
-  import("react-leaflet").then((module) => ({ default: module.Popup }))
-);
+// ⚡ Lazy load heavy components (Charts only - Map components eager loaded to prevent reuse error)
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 const LineChart = lazy(() => import("../components/charts/LineChart"));
 const QualityScoreChart = lazy(() =>
   import("../components/charts/QualityScoreCharts")
@@ -742,47 +731,37 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="h-[calc(100%-65px)]">
-              <Suspense
-                fallback={
-                  <div className="h-full flex items-center justify-center bg-gray-100 rounded">
-                    <div className="text-gray-500">Loading map...</div>
-                  </div>
-                }
+              <MapContainer
+                center={[-7.0506, 110.4397]}
+                zoom={18}
+                style={{ height: "100%", width: "100%" }}
               >
-                <MapContainer
-                  center={[-7.0506, 110.4397]}
-                  zoom={18}
-                  style={{ height: "100%", width: "100%" }}
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  />
-                  {selectedPlace && (
-                    <>
-                      <MapUpdaterComponent
-                        location={locations[selectedPlace]}
-                      />
-                      <Marker position={locations[selectedPlace]}>
-                        <Popup>
-                          <div className="text-sm p-2">
-                            <p className="font-bold capitalize text-gray-900 mb-1">
-                              📍 {selectedPlace}
-                            </p>
-                            <p className="text-xs text-gray-600 mb-2">
-                              {currentIpal?.ipal_location || ""}
-                            </p>
-                            <p className="text-xs text-gray-500 font-mono">
-                              {locations[selectedPlace][0].toFixed(6)},{" "}
-                              {locations[selectedPlace][1].toFixed(6)}
-                            </p>
-                          </div>
-                        </Popup>
-                      </Marker>
-                    </>
-                  )}
-                </MapContainer>
-              </Suspense>
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                />
+                {selectedPlace && (
+                  <>
+                    <MapUpdaterComponent location={locations[selectedPlace]} />
+                    <Marker position={locations[selectedPlace]}>
+                      <Popup>
+                        <div className="text-sm p-2">
+                          <p className="font-bold capitalize text-gray-900 mb-1">
+                            📍 {selectedPlace}
+                          </p>
+                          <p className="text-xs text-gray-600 mb-2">
+                            {currentIpal?.ipal_location || ""}
+                          </p>
+                          <p className="text-xs text-gray-500 font-mono">
+                            {locations[selectedPlace][0].toFixed(6)},{" "}
+                            {locations[selectedPlace][1].toFixed(6)}
+                          </p>
+                        </div>
+                      </Popup>
+                    </Marker>
+                  </>
+                )}
+              </MapContainer>
             </div>
           </div>
 
