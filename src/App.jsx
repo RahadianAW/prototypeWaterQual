@@ -1,21 +1,26 @@
 // src/App.jsx
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
-import Dashboard from "./pages/Dashboard";
-import Login from "./pages/Login";
-import SensorDetail from "./pages/SensorDetail";
-import Alerts from "./pages/Alerts";
-import Reports from "./pages/Reports";
-import NotFound from "./pages/NotFound";
-import DashboardLayout from "./components/layout/DashboardLayout";
-import Sensors from "./pages/Sensors";
-import ProtectedRoute from "./components/ProtectedRoute";
 import { IPALProvider } from "./context/IPALContext";
 import {
   requestNotificationPermission,
   registerFCMToken,
   onMessageListener,
 } from "./services/fcmService";
+
+// ⚡ Eager load - Always needed
+import Login from "./pages/Login";
+import ProtectedRoute from "./components/ProtectedRoute";
+import DashboardLayout from "./components/layout/DashboardLayout";
+import { LoadingScreen } from "./components/ui";
+
+// ⚡ Lazy load pages - Load on demand
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Sensors = lazy(() => import("./pages/Sensors"));
+const SensorDetail = lazy(() => import("./pages/SensorDetail"));
+const Alerts = lazy(() => import("./pages/Alerts"));
+const Reports = lazy(() => import("./pages/Reports"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 function App() {
   // ⭐ FCM INITIALIZATION
@@ -73,29 +78,31 @@ function App() {
 
   return (
     <IPALProvider>
-      <Routes>
-        {/* Auth pages */}
-        <Route path="/" element={<Login />} />
-        <Route path="/login" element={<Login />} />
+      <Suspense fallback={<LoadingScreen message="Loading..." />}>
+        <Routes>
+          {/* Auth pages */}
+          <Route path="/" element={<Login />} />
+          <Route path="/login" element={<Login />} />
 
-        {/* Protected routes */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <DashboardLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/sensors" element={<Sensors />} />
-          <Route path="/sensors/:id" element={<SensorDetail />} />
-          <Route path="/alerts" element={<Alerts />} />
-          <Route path="/reports" element={<Reports />} />
-        </Route>
+          {/* Protected routes */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <DashboardLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/sensors" element={<Sensors />} />
+            <Route path="/sensors/:id" element={<SensorDetail />} />
+            <Route path="/alerts" element={<Alerts />} />
+            <Route path="/reports" element={<Reports />} />
+          </Route>
 
-        {/* 404 Not Found - catch all */}
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+          {/* 404 Not Found - catch all */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
     </IPALProvider>
   );
 }

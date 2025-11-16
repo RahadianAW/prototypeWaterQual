@@ -1,8 +1,7 @@
 // src/pages/Dashboard.jsx
 // 🔥 IMPROVED VERSION - Better Layout, Recommendations, Violations Display
 
-import React, { useState, useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import {
@@ -29,9 +28,25 @@ import {
 import { LoadingScreen } from "../components/ui";
 import { useIPAL } from "../context/IPALContext";
 
-// Components
-import LineChart from "../components/charts/LineChart";
-import QualityScoreChart from "../components/charts/QualityScoreCharts";
+// ⚡ Lazy load heavy components
+const MapContainer = lazy(() =>
+  import("react-leaflet").then((module) => ({ default: module.MapContainer }))
+);
+const TileLayer = lazy(() =>
+  import("react-leaflet").then((module) => ({ default: module.TileLayer }))
+);
+const Marker = lazy(() =>
+  import("react-leaflet").then((module) => ({ default: module.Marker }))
+);
+const Popup = lazy(() =>
+  import("react-leaflet").then((module) => ({ default: module.Popup }))
+);
+const LineChart = lazy(() => import("../components/charts/LineChart"));
+const QualityScoreChart = lazy(() =>
+  import("../components/charts/QualityScoreCharts")
+);
+
+// Eager load - Small components
 import StatsOverview from "../components/ui/StatsOverview";
 import Select from "../components/ui/Select";
 import Button from "../components/ui/Button";
@@ -60,18 +75,21 @@ L.Icon.Default.mergeOptions({
     "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
-// Component to update map position when location changes
-const MapUpdater = ({ location }) => {
-  const map = useMap();
-  useEffect(() => {
-    if (location) {
-      map.flyTo(location, 18, { duration: 1.2 });
-    }
-  }, [location, map]);
-  return null;
-};
+// Component to update map position when location changes (moved inside Dashboard to avoid lazy load issues)
 
 const Dashboard = () => {
+  // ⚡ MapUpdater component (needs to be inside because it uses useMap from react-leaflet)
+  const MapUpdaterComponent = ({ location }) => {
+    const { useMap } = require("react-leaflet");
+    const map = useMap();
+    useEffect(() => {
+      if (location) {
+        map.flyTo(location, 18, { duration: 1.2 });
+      }
+    }, [location, map]);
+    return null;
+  };
+
   // ⭐ USE IPAL CONTEXT - Dynamic IPAL ID
   const { currentIpalId, currentIpal, isLoading: isIpalLoading } = useIPAL();
 
@@ -610,7 +628,15 @@ const Dashboard = () => {
           </div>
 
           <div className="p-6 h-[450px]">
-            <QualityScoreChart data={qualityChartData} height={380} />
+            <Suspense
+              fallback={
+                <div className="h-full flex items-center justify-center">
+                  <div className="text-gray-500">Loading chart...</div>
+                </div>
+              }
+            >
+              <QualityScoreChart data={qualityChartData} height={380} />
+            </Suspense>
           </div>
         </div>
 
@@ -716,35 +742,47 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="h-[calc(100%-65px)]">
-              <MapContainer
-                center={[-7.0506, 110.4397]}
-                zoom={18}
-                style={{ height: "100%", width: "100%" }}
+              <Suspense
+                fallback={
+                  <div className="h-full flex items-center justify-center bg-gray-100 rounded">
+                    <div className="text-gray-500">Loading map...</div>
+                  </div>
+                }
               >
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                />
-                <MapUpdater location={locations[selectedPlace]} />
-                {selectedPlace && (
-                  <Marker position={locations[selectedPlace]}>
-                    <Popup>
-                      <div className="text-sm p-2">
-                        <p className="font-bold capitalize text-gray-900 mb-1">
-                          📍 {selectedPlace}
-                        </p>
-                        <p className="text-xs text-gray-600 mb-2">
-                          {currentIpal?.ipal_location || ""}
-                        </p>
-                        <p className="text-xs text-gray-500 font-mono">
-                          {locations[selectedPlace][0].toFixed(6)},{" "}
-                          {locations[selectedPlace][1].toFixed(6)}
-                        </p>
-                      </div>
-                    </Popup>
-                  </Marker>
-                )}
-              </MapContainer>
+                <MapContainer
+                  center={[-7.0506, 110.4397]}
+                  zoom={18}
+                  style={{ height: "100%", width: "100%" }}
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  />
+                  {selectedPlace && (
+                    <>
+                      <MapUpdaterComponent
+                        location={locations[selectedPlace]}
+                      />
+                      <Marker position={locations[selectedPlace]}>
+                        <Popup>
+                          <div className="text-sm p-2">
+                            <p className="font-bold capitalize text-gray-900 mb-1">
+                              📍 {selectedPlace}
+                            </p>
+                            <p className="text-xs text-gray-600 mb-2">
+                              {currentIpal?.ipal_location || ""}
+                            </p>
+                            <p className="text-xs text-gray-500 font-mono">
+                              {locations[selectedPlace][0].toFixed(6)},{" "}
+                              {locations[selectedPlace][1].toFixed(6)}
+                            </p>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    </>
+                  )}
+                </MapContainer>
+              </Suspense>
             </div>
           </div>
 
@@ -816,14 +854,22 @@ const Dashboard = () => {
                 </div>
               ) : chartData.length > 0 ? (
                 <div className="h-full">
-                  <LineChart
-                    data={chartData}
-                    dataKey="value"
-                    name={currentParam.name}
-                    color={currentParam.color}
-                    unit={currentParam.unit}
-                    height={280}
-                  />
+                  <Suspense
+                    fallback={
+                      <div className="h-full flex items-center justify-center">
+                        <div className="text-gray-500">Loading chart...</div>
+                      </div>
+                    }
+                  >
+                    <LineChart
+                      data={chartData}
+                      dataKey="value"
+                      name={currentParam.name}
+                      color={currentParam.color}
+                      unit={currentParam.unit}
+                      height={280}
+                    />
+                  </Suspense>
                 </div>
               ) : (
                 <div className="h-full flex items-center justify-center">
