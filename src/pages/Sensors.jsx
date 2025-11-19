@@ -1,255 +1,501 @@
-// src/pages/Sensors.jsx
-import React, { useState } from "react";
+// src/pages/Sensors.jsx (IMPROVED VERSION)
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { sensors as initialSensors } from "../data/dummyData";
-import { MdOutlineSensors, MdArrowForward, MdAdd, MdClose } from "react-icons/md";
+import {
+  MdOutlineSensors,
+  MdArrowForward,
+  MdRefresh,
+  MdCheckCircle,
+  MdError,
+  MdAccessTime,
+  MdWarning,
+  MdTrendingUp,
+  MdTrendingDown,
+} from "react-icons/md";
+import sensorService from "../services/sensorServices";
+import { LoadingScreen } from "../components/ui";
+import { useIPAL } from "../context/IPALContext";
 
 const Sensors = () => {
-  const [sensors] = useState(initialSensors); // tidak dipakai untuk tambah sensor
-  const [showForm, setShowForm] = useState(false);
-  const [showNotice, setShowNotice] = useState(false); // popup notifikasi
-  const [newSensor, setNewSensor] = useState({
-    type: "",
-    location: "Inlet",
-    description: "",
-    unit: "",
-    min: "",
-    max: "",
-    threshold: "",
-    status: "active",
-  });
+  // ⭐ USE IPAL CONTEXT - Dynamic IPAL ID
+  const { currentIpalId, currentIpal } = useIPAL();
 
-  const locations = [...new Set(sensors.map((s) => s.location))];
+  const [sensors, setSensors] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState(new Date());
 
-  // Handler klik simpan
-  const handleAddSensor = (e) => {
-    e.preventDefault();
-    setShowForm(false); // tutup form
-    setShowNotice(true); // tampilkan notifikasi
+  useEffect(() => {
+    if (currentIpalId) {
+      fetchSensors();
+
+      // Auto-refresh every 30 seconds
+      const interval = setInterval(() => {
+        handleRefresh(true); // silent refresh
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [currentIpalId]);
+
+  const fetchSensors = async () => {
+    try {
+      setLoading(true);
+      const data = await sensorService.getAllSensors({
+        ipal_id: currentIpalId,
+      });
+
+      // Fetch latest reading + mini history untuk setiap sensor
+      const sensorsWithData = await Promise.all(
+        data.map(async (sensor) => {
+          try {
+            const latestData = await sensorService.getSensorLatestReading(
+              sensor.id
+            );
+            const historyData = await sensorService.getSensorHistory(
+              sensor.id,
+              {
+                limit: 10, // Last 10 readings for sparkline
+              }
+            );
+
+            return {
+              ...sensor,
+              latest_reading: latestData.latest_reading,
+              mini_history: historyData.history || [],
+            };
+          } catch (error) {
+            return {
+              ...sensor,
+              latest_reading: null,
+              mini_history: [],
+            };
+          }
+        })
+      );
+
+      setSensors(sensorsWithData);
+      setLastRefresh(new Date());
+    } catch (error) {
+      console.error("Error fetching sensors:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const handleRefresh = async (silent = false) => {
+    if (!silent) setRefreshing(true);
+    await fetchSensors();
+    if (!silent) setRefreshing(false);
+  };
+
+  // Group sensors by location
+  const groupedSensors = sensors.reduce((acc, sensor) => {
+    const location = sensor.sensor_location || "Unknown";
+    if (!acc[location]) {
+      acc[location] = [];
+    }
+    acc[location].push(sensor);
+    return acc;
+  }, {});
+
+  const getSensorTypeLabel = (type) => {
+    const labels = {
+      ph: "pH",
+      tds: "TDS",
+      turbidity: "Turbidity",
+      temperature: "Temperature",
+    };
+    return labels[type] || type;
+  };
+
+  const getSensorUnit = (type) => {
+    const units = {
+      ph: "",
+      tds: "ppm",
+      turbidity: "NTU",
+      temperature: "°C",
+    };
+    return units[type] || "";
+  };
+
+  // ========================================
+  // NEW: Status Badge with Pulse Animation
+  // ========================================
+  const SensorStatusBadge = ({ sensor }) => {
+    const timeSinceLastReading = sensor.latest_reading
+      ? new Date() - new Date(sensor.latest_reading.timestamp)
+      : null;
+
+    const isOnline =
+      timeSinceLastReading && timeSinceLastReading < 10 * 60 * 1000; // 10 min
+    const isWarning =
+      timeSinceLastReading && timeSinceLastReading < 30 * 60 * 1000; // 30 min
+
+    const formatLastSeen = (timestamp) => {
+      if (!timestamp) return "No data";
+      const diff = new Date() - new Date(timestamp);
+      const minutes = Math.floor(diff / 60000);
+
+      if (minutes < 1) return "Just now";
+      if (minutes < 60) return `${minutes}m ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}h ago`;
+      return `${Math.floor(hours / 24)}d ago`;
+    };
+
+    return (
+      <div className="flex items-center justify-between w-full text-xs">
+        <div className="flex items-center space-x-2">
+          {/* Pulse animation */}
+          <div className="relative">
+            <div
+              className={`h-2 w-2 rounded-full ${
+                isOnline
+                  ? "bg-green-500"
+                  : isWarning
+                  ? "bg-yellow-500"
+                  : "bg-gray-300"
+              }`}
+            ></div>
+            {isOnline && (
+              <div className="absolute inset-0 h-2 w-2 rounded-full bg-green-500 animate-ping opacity-75"></div>
+            )}
+          </div>
+          <span
+            className={`font-medium ${
+              isOnline
+                ? "text-green-700"
+                : isWarning
+                ? "text-yellow-700"
+                : "text-gray-500"
+            }`}
+          >
+            {isOnline ? "Online" : isWarning ? "Warning" : "Offline"}
+          </span>
+        </div>
+        <span className="text-gray-500">
+          {sensor.latest_reading
+            ? formatLastSeen(sensor.latest_reading.timestamp)
+            : "No data"}
+        </span>
+      </div>
+    );
+  };
+
+  // ========================================
+  // NEW: Threshold Warning
+  // ========================================
+  const ThresholdWarning = ({ value, sensorType }) => {
+    if (!value) return null;
+
+    const thresholds = {
+      ph: { min: 6, max: 9, label: "6-9" },
+      tds: { max: 500, label: "< 500 ppm" },
+      turbidity: { max: 5, label: "< 5 NTU" },
+      temperature: { min: 20, max: 35, label: "20-35°C" },
+    };
+
+    const threshold = thresholds[sensorType];
+    if (!threshold) return null;
+
+    const isAboveMax = threshold.max && value > threshold.max;
+    const isBelowMin = threshold.min && value < threshold.min;
+
+    if (!isAboveMax && !isBelowMin) {
+      return (
+        <div className="flex items-center text-green-600 text-xs mt-1">
+          <MdCheckCircle className="mr-1" /> Normal
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center text-red-600 text-xs mt-1">
+        <MdWarning className="mr-1" />
+        {isAboveMax ? "Above" : "Below"} threshold!
+      </div>
+    );
+  };
+
+  // ========================================
+  // NEW: Mini Sparkline Chart
+  // ========================================
+  const MiniSparkline = ({ data, color = "#3b82f6" }) => {
+    if (!data || data.length < 2) return null;
+
+    const values = data.map((d) => d.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || 1;
+
+    // Generate SVG path
+    const points = values.map((val, idx) => {
+      const x = (idx / (values.length - 1)) * 100;
+      const y = 100 - ((val - min) / range) * 100;
+      return `${x},${y}`;
+    });
+
+    return (
+      <div className="h-12 -mx-3 -mb-3 overflow-hidden rounded-b-lg bg-gradient-to-t from-gray-50 to-transparent">
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          className="w-full h-full"
+        >
+          <polyline
+            points={points.join(" ")}
+            fill="none"
+            stroke={color}
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
+          />
+        </svg>
+      </div>
+    );
+  };
+
+  // ========================================
+  // NEW: Trend Indicator
+  // ========================================
+  const TrendIndicator = ({ history }) => {
+    if (!history || history.length < 2) return null;
+
+    const current = history[0]?.value;
+    const previous = history[1]?.value;
+
+    if (!current || !previous) return null;
+
+    const change = ((current - previous) / previous) * 100;
+    const isIncrease = change > 0;
+
+    if (Math.abs(change) < 0.1) return null; // No significant change
+
+    return (
+      <div
+        className={`flex items-center text-xs ${
+          isIncrease ? "text-orange-600" : "text-blue-600"
+        }`}
+      >
+        {isIncrease ? (
+          <MdTrendingUp className="mr-1" />
+        ) : (
+          <MdTrendingDown className="mr-1" />
+        )}
+        <span>{Math.abs(change).toFixed(1)}%</span>
+      </div>
+    );
+  };
+
+  if (loading) {
+    return <LoadingScreen message="Loading Sensors" icon={MdOutlineSensors} />;
+  }
+
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <MdOutlineSensors className="h-7 w-7 text-primary-600" />
-          <h2 className="text-2xl font-bold text-gray-800">All Sensors</h2>
+          <div className="p-3 bg-primary-100 rounded-lg">
+            <MdOutlineSensors className="h-6 w-6 text-primary-600" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">
+              Sensor Management
+            </h2>
+            <p className="text-sm text-gray-500">
+              Monitor all sensors in IPAL UNDIP • Last update:{" "}
+              {lastRefresh.toLocaleTimeString("id-ID", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
+          </div>
         </div>
 
-        {/* Tombol tambah sensor */}
         <button
-          onClick={() => setShowForm(true)}
-          className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 transition"
+          onClick={() => handleRefresh(false)}
+          disabled={refreshing}
+          className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
         >
-          <MdAdd className="mr-1" />
-          Tambah Sensor
+          <MdRefresh className={`mr-2 ${refreshing ? "animate-spin" : ""}`} />
+          Refresh
         </button>
       </div>
 
-      {/* Modal Form Tambah Sensor */}
-      {showForm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-lg p-6 relative">
-            {/* Tombol close */}
-            <button
-              onClick={() => setShowForm(false)}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600"
-            >
-              <MdClose size={22} />
-            </button>
-
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">
-              Tambah Sensor Baru
-            </h3>
-            <form onSubmit={handleAddSensor} className="space-y-4">
-              <input
-                type="text"
-                placeholder="Sensor Type (ex: pH, TDS, Suhu)"
-                value={newSensor.type}
-                onChange={(e) =>
-                  setNewSensor({ ...newSensor, type: e.target.value })
-                }
-                className="border rounded-lg px-3 py-2 text-sm w-full"
-              />
-
-              {/* Dropdown Location */}
-              <select
-                value={newSensor.location}
-                onChange={(e) =>
-                  setNewSensor({ ...newSensor, location: e.target.value })
-                }
-                className="border rounded-lg px-3 py-2 text-sm w-full"
-              >
-                <option value="Inlet">Inlet</option>
-                <option value="Outlet">Outlet</option>
-              </select>
-
-              <input
-                type="text"
-                placeholder="Description"
-                value={newSensor.description}
-                onChange={(e) =>
-                  setNewSensor({ ...newSensor, description: e.target.value })
-                }
-                className="border rounded-lg px-3 py-2 text-sm w-full"
-              />
-              <input
-                type="text"
-                placeholder="Unit (ex: pH, °C, ppm)"
-                value={newSensor.unit}
-                onChange={(e) =>
-                  setNewSensor({ ...newSensor, unit: e.target.value })
-                }
-                className="border rounded-lg px-3 py-2 text-sm w-full"
-              />
-
-              {/* Range normal */}
-              <div className="flex space-x-2">
-                <input
-                  type="number"
-                  placeholder="Min Value"
-                  value={newSensor.min}
-                  onChange={(e) =>
-                    setNewSensor({ ...newSensor, min: e.target.value })
-                  }
-                  className="border rounded-lg px-3 py-2 text-sm w-1/2"
-                />
-                <input
-                  type="number"
-                  placeholder="Max Value"
-                  value={newSensor.max}
-                  onChange={(e) =>
-                    setNewSensor({ ...newSensor, max: e.target.value })
-                  }
-                  className="border rounded-lg px-3 py-2 text-sm w-1/2"
-                />
-              </div>
-
-              <input
-                type="number"
-                placeholder="Threshold (Ambang Batas)"
-                value={newSensor.threshold}
-                onChange={(e) =>
-                  setNewSensor({ ...newSensor, threshold: e.target.value })
-                }
-                className="border rounded-lg px-3 py-2 text-sm w-full"
-              />
-
-              <select
-                value={newSensor.status}
-                onChange={(e) =>
-                  setNewSensor({ ...newSensor, status: e.target.value })
-                }
-                className="border rounded-lg px-3 py-2 text-sm w-full"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-
-              <div className="flex justify-end space-x-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowForm(false)}
-                  className="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-100"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700"
-                >
-                  Simpan
-                </button>
-              </div>
-            </form>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Total Sensors</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {sensors.length}
+              </p>
+            </div>
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <MdOutlineSensors className="h-6 w-6 text-blue-600" />
+            </div>
           </div>
         </div>
-      )}
 
-      {/* Popup Notifikasi */}
-      {showNotice && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full text-center">
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">
-              Feature Not Available
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              This feature is coming soon.
-            </p>
-            <button
-              onClick={() => setShowNotice(false)}
-              className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700"
-            >
-              OK
-            </button>
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Online</p>
+              <p className="text-2xl font-bold text-green-600">
+                {
+                  sensors.filter((s) => {
+                    const timeDiff = s.latest_reading
+                      ? new Date() - new Date(s.latest_reading.timestamp)
+                      : null;
+                    return timeDiff && timeDiff < 10 * 60 * 1000;
+                  }).length
+                }
+              </p>
+            </div>
+            <div className="p-3 bg-green-100 rounded-lg">
+              <MdCheckCircle className="h-6 w-6 text-green-600" />
+            </div>
           </div>
         </div>
-      )}
 
-      {/* Loop per lokasi */}
-      {locations.map((loc) => (
-        <div key={loc} className="space-y-4">
-          <h3 className="text-xl font-semibold text-gray-700">{loc}</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sensors
-              .filter((s) => s.location === loc)
-              .map((sensor) => (
-                <div
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Inlet Sensors</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {sensors.filter((s) => s.sensor_location === "inlet").length}
+              </p>
+            </div>
+            <div className="p-3 bg-purple-100 rounded-lg">
+              <MdArrowForward className="h-6 w-6 text-purple-600 rotate-180" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Outlet Sensors</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {sensors.filter((s) => s.sensor_location === "outlet").length}
+              </p>
+            </div>
+            <div className="p-3 bg-orange-100 rounded-lg">
+              <MdArrowForward className="h-6 w-6 text-orange-600" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sensors Grid - Grouped by Location */}
+      {Object.entries(groupedSensors).map(([location, locationSensors]) => (
+        <div key={location} className="space-y-4">
+          <div className="flex items-center space-x-2">
+            <h3 className="text-lg font-semibold text-gray-900 capitalize">
+              {location}
+            </h3>
+            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+              {locationSensors.length} sensors
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {locationSensors.map((sensor) => {
+              const unit = getSensorUnit(sensor.sensor_type);
+              const sparklineColor =
+                sensor.sensor_location === "inlet" ? "#8b5cf6" : "#f97316";
+
+              return (
+                <Link
                   key={sensor.id}
-                  className="bg-white rounded-xl shadow-sm p-5 flex flex-col justify-between hover:shadow-md transition"
+                  to={`/sensors/${sensor.id}`}
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md hover:border-primary-300 transition-all group overflow-hidden"
                 >
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800">
-                      {sensor.type}{" "}
-                      {sensor.unit && (
-                        <span className="text-gray-500 text-sm">
-                          ({sensor.unit})
-                        </span>
-                      )}
-                    </h3>
-                    <p className="text-gray-400 text-xs mt-1">
-                      {sensor.description}
-                    </p>
-                    {sensor.min && sensor.max && (
-                      <p className="text-gray-500 text-xs mt-1">
-                        Range: {sensor.min} – {sensor.max} {sensor.unit}
-                      </p>
+                  <div className="p-5 pb-3">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h4 className="text-base font-semibold text-gray-900 group-hover:text-primary-600 transition">
+                          {getSensorTypeLabel(sensor.sensor_type)}
+                        </h4>
+                        <p className="text-xs text-gray-500 mt-1 capitalize">
+                          {sensor.sensor_location}
+                        </p>
+                      </div>
+                      <TrendIndicator history={sensor.mini_history} />
+                    </div>
+
+                    {/* Latest Reading */}
+                    {sensor.latest_reading ? (
+                      <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-3 mb-3">
+                        <p className="text-xs text-gray-500 mb-1">
+                          Latest Value
+                        </p>
+                        <div className="flex items-end justify-between">
+                          <p className="text-2xl font-bold text-gray-900">
+                            {sensor.latest_reading.value}
+                            <span className="text-sm font-normal text-gray-500 ml-1">
+                              {unit}
+                            </span>
+                          </p>
+                        </div>
+                        <ThresholdWarning
+                          value={sensor.latest_reading.value}
+                          sensorType={sensor.sensor_type}
+                        />
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                        <p className="text-sm text-gray-400 text-center">
+                          No data available
+                        </p>
+                      </div>
                     )}
-                    {sensor.threshold && (
-                      <p className="text-red-500 text-xs mt-1">
-                        Threshold: {sensor.threshold} {sensor.unit}
-                      </p>
-                    )}
+
+                    {/* Status Badge */}
+                    <div className="mb-3">
+                      <SensorStatusBadge sensor={sensor} />
+                    </div>
+
+                    {/* Footer */}
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-gray-100">
+                      <span className="text-gray-500 flex items-center">
+                        <MdAccessTime className="mr-1" />
+                        {sensor.mini_history.length} readings
+                      </span>
+                      <span className="text-primary-600 group-hover:underline flex items-center font-medium">
+                        View Details
+                        <MdArrowForward className="ml-1" />
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="mt-3 flex items-center">
-                    <span
-                      className={`h-3 w-3 rounded-full ${
-                        sensor.status === "active"
-                          ? "bg-success-500"
-                          : "bg-gray-300"
-                      }`}
-                    ></span>
-                    <span className="ml-2 text-sm text-gray-600">
-                      {sensor.status === "active" ? "Active" : "Inactive"}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 flex justify-end">
-                    <Link
-                      to={`/sensors/${sensor.id}`}
-                      className="inline-flex items-center text-primary-600 hover:text-primary-700 font-medium text-sm"
-                    >
-                      View Detail
-                      <MdArrowForward className="ml-1" />
-                    </Link>
-                  </div>
-                </div>
-              ))}
+                  {/* Mini Sparkline Chart */}
+                  <MiniSparkline
+                    data={sensor.mini_history.slice().reverse()}
+                    color={sparklineColor}
+                  />
+                </Link>
+              );
+            })}
           </div>
         </div>
       ))}
+
+      {/* Empty State */}
+      {sensors.length === 0 && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+          <MdError className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No Sensors Found
+          </h3>
+          <p className="text-gray-500 mb-6">
+            There are no sensors configured for this IPAL.
+          </p>
+        </div>
+      )}
     </div>
   );
 };
